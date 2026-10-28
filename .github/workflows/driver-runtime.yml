@@ -87,6 +87,14 @@ jobs:
           bash packaging/linux/fat-kernel-build.sh 16 "$stage" "$RUNNER_TEMP/linux-fat"
           test "$(modinfo -F name "$stage/fat12.ko")" = fat12
           test "$(modinfo -F name "$stage/fat16.ko")" = fat16
+      - name: Prove standalone host kernel builder matches the boot-tested module
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/standalone-variant"
+          python3 standalone/kernel.py --kernel-tree "$RUNNER_TEMP/linux-fat" --output "$RUNNER_TEMP/standalone-variant"
+          test "$(modinfo -F name "$RUNNER_TEMP/standalone-variant/fat12.ko")" = fat12
+          cp "$RUNNER_TEMP/standalone-variant/fat12.ko" "$RUNNER_TEMP/fat-variants/fat12.ko"
       - name: Create independent images and isolated initramfs
         shell: bash
         run: |

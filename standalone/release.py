@@ -73,6 +73,13 @@ def build_deb(profile, dest):
         # The fixture test is an ephemeral QA executable, never a filesystem driver.
         (module.parent / f"fat{WIDTH}-module-test").unlink()
         ko_sha, efi_sha = stage_drivers(root)
+        # Ship the selected VFS driver source and independent host-kernel
+        # builder, not only a binary for the reference QEMU kernel.
+        host_source = root / "System/Kernel/Sources" / REPO
+        host_source.mkdir(parents=True)
+        shutil.copytree(ROOT / "native/filesystems/fat/linux", host_source / "linux")
+        shutil.copy2(ROOT / "standalone/kernel.py", host_source / "kernel.py")
+        (host_source / "WIDTH").write_text(str(WIDTH) + "\n")
         info_dir = root / "System/Resources/Documentation" / REPO
         info_dir.mkdir(parents=True)
         digest = hashlib.sha256(module.read_bytes()).hexdigest()
