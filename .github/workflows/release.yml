@@ -52,7 +52,7 @@ jobs:
           dpkg-deb --contents dist/*.deb
           python3 standalone/verify_drivers.py dist/*.deb
           bash dist/*.run --help
-          sudo bash dist/*.run --profile aggressive --system-package-mode
+          sudo --preserve-env=GITHUB_ACTIONS bash dist/*.run --profile aggressive --system-package-mode --ci-reference-kernel-only
           version=$(cat VERSION)
           test "$(dpkg-query -W -f='${Version}' infiltrator-filesystem-fat12)" = "${version}+native1"
           python3 standalone/build.py --profile portable --output build/FAT12.so --check

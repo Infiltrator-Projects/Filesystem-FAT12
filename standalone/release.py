@@ -63,7 +63,7 @@ def stage_drivers(stage):
 def run(args):
     subprocess.run([str(a) for a in args], check=True)
 
-def build_deb(profile, dest):
+def build_deb(profile, dest, host_ko=None):
     with tempfile.TemporaryDirectory(prefix=SLUG + "-package-") as tmp:
         root = Path(tmp) / "root"
         module = root / "System/Filesystems" / MODULE
@@ -80,6 +80,23 @@ def build_deb(profile, dest):
         shutil.copytree(ROOT / "native/filesystems/fat/linux", host_source / "linux")
         shutil.copy2(ROOT / "standalone/kernel.py", host_source / "kernel.py")
         (host_source / "WIDTH").write_text(str(WIDTH) + "\n")
+        host_release = None
+        host_sha = None
+        if host_ko:
+            host_release = os.uname().release
+            if not re.fullmatch(r"[A-Za-z0-9._+-]+", host_release):
+                raise RuntimeError("Unsafe target kernel release")
+            original = Path(host_ko)
+            if not original.is_file() or original.is_symlink():
+                raise RuntimeError("Native kernel module was not prebuilt")
+            found_name = subprocess.check_output(["modinfo", "-F", "name", original], text=True).strip()
+            found_release = subprocess.check_output(["modinfo", "-F", "vermagic", original], text=True).split()[0]
+            if found_name != f"fat{WIDTH}" or found_release != host_release:
+                raise RuntimeError("Native kernel ABI does not match the currently running kernel")
+            installed_ko = root / "lib/modules" / host_release / "updates/infiltrator" / f"fat{WIDTH}.ko"
+            installed_ko.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(original, installed_ko)
+            host_sha = hashlib.sha256(installed_ko.read_bytes()).hexdigest()
         info_dir = root / "System/Resources/Documentation" / REPO
         info_dir.mkdir(parents=True)
         digest = hashlib.sha256(module.read_bytes()).hexdigest()
@@ -89,17 +106,28 @@ def build_deb(profile, dest):
             f"C flags: {' '.join(flags)}\nSHA256: {digest}\n"
             f"Kernel-SHA256: {ko_sha}\nEFI-SHA256: {efi_sha}\n"
             f"Kernel-Tested-Version: {KERNEL_TEST_VERSION}\n"
-            f"Kernel-Compatibility: QEMU-tested reference only; rebuild for host kernel\n")
+            f"Kernel-Compatibility: QEMU-tested reference only; rebuild for host kernel\n"
+            + (f"Host-Kernel-Release: {host_release}\nHost-Kernel-SHA256: {host_sha}\n" if host_ko else ""))
         for item in ("README.md", "MIGRATION-PROVENANCE.md"):
             shutil.copy2(ROOT / item, info_dir / item)
         control = root / "DEBIAN"
         control.mkdir()
         deb_version = VERSION + ("+native1" if profile == "aggressive" else "")
+        if host_ko:
+            # dpkg owns this native module; update Linux's module lookup without loading it.
+            (control / "postinst").write_text(
+                "#!/bin/sh\nset -eu\n"
+                f"if [ \"$1\" = configure ]; then depmod -a {host_release}; fi\n")
+            (control / "postrm").write_text(
+                "#!/bin/sh\nset -eu\n"
+                f"if [ \"$1\" = remove ] || [ \"$1\" = purge ]; then depmod -a {host_release}; fi\n")
+            (control / "postinst").chmod(0o755)
+            (control / "postrm").chmod(0o755)
         (control / "control").write_text(
             f"Package: {PACKAGE}\nVersion: {deb_version}\nArchitecture: amd64\n"
             "Section: admin\nPriority: optional\n"
             "Maintainer: Infiltrator Projects <noreply@infiltrator-projects.invalid>\n"
-            "Depends: libc6\n"
+            "Depends: libc6, kmod\n"
             f"Description: independent FAT{WIDTH} SO, kernel and UEFI filesystem driver\n"
             f" Ships FAT{WIDTH}.so, OVMF-tested FAT{WIDTH}.efi and QEMU-tested fat{WIDTH}.ko.\n"
             f" Kernel module is restricted to tested Linux {KERNEL_TEST_VERSION}; rebuild for host kernel.\n")
@@ -197,11 +225,25 @@ def install(rest):
     parser.add_argument("--system-package-mode", action="store_true")
     parser.add_argument("--build-only", action="store_true")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--ci-reference-kernel-only", action="store_true",
+                        help=argparse.SUPPRESS)
     opt = parser.parse_args(rest)
+    if opt.ci_reference_kernel_only and os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("Reference-only install is restricted to disposable GitHub CI runners")
     with tempfile.TemporaryDirectory(prefix=SLUG + "-install-") as tmp:
         output = (opt.output if opt.build_only and opt.output else
                   Path(tmp) / f"{PACKAGE}_{VERSION}+native1_amd64.deb").resolve()
-        build_deb(opt.profile, output)
+        host_ko = None
+        if not opt.ci_reference_kernel_only:
+            # Fail before altering any installed files if this kernel cannot
+            # compile the selected read/write module against its actual ABI.
+            native_ko_dir = Path(tmp) / "native-kernel"
+            native_ko_dir.mkdir()
+            run([sys.executable, ROOT / "standalone/kernel.py",
+                 "--kernel-tree", Path("/lib/modules") / os.uname().release / "build",
+                 "--output", native_ko_dir])
+            host_ko = native_ko_dir / f"fat{WIDTH}.ko"
+        build_deb(opt.profile, output, host_ko=host_ko)
         if opt.build_only:
             print(output)
             return
@@ -225,6 +267,15 @@ def install(rest):
             data = qualified_driver(filename).read_bytes()
             if f"{label}: {hashlib.sha256(data).hexdigest()}\n" not in record:
                 raise RuntimeError(label + " did not match BUILD-INFO")
+        if host_ko:
+            current_release = os.uname().release
+            live = Path("/lib/modules") / current_release / "updates/infiltrator" / f"fat{WIDTH}.ko"
+            expected = hashlib.sha256(Path(host_ko).read_bytes()).hexdigest()
+            if not live.is_file() or hashlib.sha256(live.read_bytes()).hexdigest() != expected:
+                raise RuntimeError("Native kernel driver not installed from exact source")
+            if f"Host-Kernel-SHA256: {expected}\n" not in record:
+                raise RuntimeError("Installed native kernel driver not recorded")
+            run(["modprobe", "--dry-run", "--verbose", f"fat{WIDTH}"])
         print("Installed and verified", installed)
 
 def main():
