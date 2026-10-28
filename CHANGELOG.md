@@ -1,5 +1,12 @@
 # Filesystem FAT12 changelog
 
+## 0.1.4 — 2026-10-29 (single-driver architecture documentation)
+
+- Define `FAT12.so` as the only final filesystem-specific distributed driver for BOOT, kernel and applications; one canonical FAT12 engine.
+- Clarify that currently built `fat12.ko`/`FAT12.efi` components are transitional compatibility and test outputs, not separate permanent end-user filesystem products.
+- Document missing universal BOOT/kernel loader work and independent acceptance gates. No runtime code or functional completion claims changed.
+
+
 ## 0.1.1 — Standalone documentation and release provenance
 
 - Record the independently qualified FAT12.so release, its limitations and immutable build/release evidence.
