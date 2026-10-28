@@ -1,5 +1,7 @@
 # Filesystem-FAT12 architecture
 
+**Architecture authority:** [One FAT12.so for every consumer](ONE_MODULE_END_STATE.md), based on [Filesystems' common single-module contract](https://github.com/Infiltrator-Projects/Filesystems/blob/main/docs/UNIFIED_FILESYSTEM_MODULE_ARCHITECTURE.md). Separate Linux/UEFI implementations listed below document the transitional source layout only.
+
 ## Purpose
 
 This repository owns the fat12 engine and its versioned C ABI. The shipped Linux shared object is `/System/Filesystems/FAT12.so`. Neither a sibling filesystem checkout nor the original Filesystems source tree is a build-time dependency. The copied Common headers are locally pinned, not dynamically retrieved during compilation.
