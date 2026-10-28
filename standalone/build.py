@@ -45,6 +45,7 @@ def inspect(module):
 def build(profile, module):
     module.parent.mkdir(parents=True, exist_ok=True)
     flags = ["-std=c11", "-fPIC", "-fno-stack-protector", "-fno-builtin",
+             "-fno-tree-loop-distribute-patterns", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=0",
              "-ffreestanding", "-fvisibility=hidden", "-D_GNU_SOURCE",
              "-D_FILE_OFFSET_BITS=64", f"-DIFS_FATFS_ONLY={WIDTH}",
              f"-DIFS_FAT_DEFRAG_BITS={WIDTH}"]
