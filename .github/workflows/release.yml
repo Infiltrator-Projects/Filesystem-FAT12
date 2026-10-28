@@ -40,6 +40,7 @@ jobs:
           lib = Path("/System/Filesystems/FAT12.so")
           info = Path("/System/Resources/Documentation/Filesystem-FAT12/BUILD-INFO").read_text()
           assert "Profile: aggressive\n" in info
+          assert "PGO: trained two-pass profile (V1 and V3/V4 fixtures)\n" in info
           assert "-O3 -march=native -mtune=native -flto=auto" in info
           assert f"SHA256: {hashlib.sha256(lib.read_bytes()).hexdigest()}\n" in info
           assert not Path("/System/Filesystems/FAT16.so").exists()

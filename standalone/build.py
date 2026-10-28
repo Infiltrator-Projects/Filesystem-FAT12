@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH = int((ROOT / "standalone" / "WIDTH").read_text().strip())
@@ -42,6 +43,33 @@ def inspect(module):
     if "(NEEDED)" in subprocess.check_output(["readelf", "-d", str(module)], text=True):
         raise RuntimeError("Unexpected runtime shared-library dependency")
 
+def compile_module(module, flags, training=False):
+    """Use host profiling libraries only for the throwaway instrumented pass."""
+    args = [os.environ.get("CC", "cc"), *flags]
+    for directory in INCLUDES:
+        args += ["-I", directory]
+    if not training:
+        args += ["-nostdlib"]
+    args += ["-shared", "-Wl,-z,defs", "-Wl,-z,relro",
+             "-Wl,-z,now", "-o", module, *SOURCES]
+    run(args)
+    if not training:
+        inspect(module)
+
+
+def train_profile(module, workspace):
+    """Read/fragment and format/write/metadata against disposable media only."""
+    test(module)
+    exe = workspace / f"fat{WIDTH}-v4-training"
+    run([os.environ.get("CC", "cc"), "-std=c11", "-O2", "-Wall",
+         "-Wextra", "-Werror", "-I", PORT,
+         ROOT / "tests/fatfs_v4_format_test.c", "-ldl", "-o", exe])
+    image = workspace / "disposable-fat.img"
+    with image.open("wb") as file:
+        file.truncate((8 if WIDTH == 12 else 32) * 1024 * 1024)
+    run([exe, module, image, "512", "4096"])
+
+
 def build(profile, module):
     module.parent.mkdir(parents=True, exist_ok=True)
     flags = ["-std=c11", "-fPIC", "-fno-stack-protector", "-fno-builtin",
@@ -56,13 +84,22 @@ def build(profile, module):
     for directory in INCLUDES:
         if not directory.is_dir():
             raise RuntimeError("Required copied source missing: " + str(directory))
-    cmd = [os.environ.get("CC", "cc"), *flags]
-    for directory in INCLUDES:
-        cmd += ["-I", directory]
-    cmd += ["-nostdlib", "-shared", "-Wl,-z,defs", "-Wl,-z,relro",
-            "-Wl,-z,now", "-o", module, *SOURCES]
-    run(cmd)
-    inspect(module)
+    if profile == "portable":
+        compile_module(module, flags)
+    else:
+        # Identical module/source paths across generate/use passes are required.
+        with tempfile.TemporaryDirectory(prefix=f"fat{WIDTH}-pgo-", dir=module.parent) as tmp:
+            workspace = Path(tmp)
+            profiles = workspace / "profiles"
+            profiles.mkdir()
+            compile_module(module, flags + ["-fprofile-generate=" + str(profiles)],
+                           training=True)
+            train_profile(module, workspace)
+            if not any(p.is_file() and p.stat().st_size for p in profiles.rglob("*.gcda")):
+                raise RuntimeError("FAT PGO training did not produce measured profile data")
+            compile_module(module, flags + ["-fprofile-use=" + str(profiles),
+                                          "-fprofile-correction", "-fprofile-partial-training"])
+        inspect(module)  # final release must have zero runtime library dependencies
     return flags
 
 def test(module):

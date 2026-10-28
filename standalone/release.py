@@ -43,7 +43,10 @@ def build_deb(profile, dest):
         (info_dir / "BUILD-INFO").write_text(
             f"Version: {VERSION}\nModule: /System/Filesystems/{MODULE}\n"
             f"Package: {PACKAGE}\nProfile: {profile}\n"
-            f"C flags: {' '.join(flags)}\nSHA256: {digest}\n")
+            f"C flags: {' '.join(flags)}\n"
+            f"LTO: {'enabled' if profile == 'aggressive' else 'disabled'}\n"
+            f"PGO: {'trained two-pass profile (V1 and V3/V4 fixtures)' if profile == 'aggressive' else 'disabled'}\n"
+            f"SHA256: {digest}\n")
         for item in ("README.md", "MIGRATION-PROVENANCE.md"):
             shutil.copy2(ROOT / item, info_dir / item)
         control = root / "DEBIAN"
@@ -80,7 +83,8 @@ def source_files():
             q.startswith("src/infiltratr-common/include/") or
             q.startswith("standalone/") or q.startswith("docs/") or
             q in ("README.md", "VERSION", "MIGRATION-PROVENANCE.md",
-                  "src/infiltratr-common/LICENSE", f"tests/fat{WIDTH}_module_test.c")
+                  "src/infiltratr-common/LICENSE", f"tests/fat{WIDTH}_module_test.c",
+                  "tests/fatfs_v4_format_test.c")
         )
         if selected and (ROOT / p).is_file() and not (ROOT / p).is_symlink():
             chosen.append(p)
