@@ -1,8 +1,10 @@
 # Filesystem-FAT12 packaging and installation
 
+**Destination:** [Only FAT12.so is the installed per-format driver](ONE_MODULE_END_STATE.md). The current release workflow and historical artifacts may include additional transitional test binaries. The finished product must package/distribute one validated `FAT12.so` and the existing generic BOOT/kernel infrastructure; do not require separate per-format `.ko` or `.efi` as permanent deliverables. Do not silently install boot artifacts to ESP/NVRAM.
+
 ## Artifacts
 
-For each version `vX.Y.Z`, publish exactly two GitHub release assets: `infiltrator-filesystem-fat12_X.Y.Z_amd64.deb` and `filesystem-fat12-X.Y.Z-native-installer.run`. GitHub's default `Source code (zip)` and `Source code (tar.gz)` links are generated from the same tag, not uploaded copies. `VERSION` is the only standalone release version authority.
+The original shared-object release convention published two assets; later transitional builds may publish additional individually qualified kernel/EFI test artifacts. The final one-file architecture publishes the selected filesystem as one installed `.so` through its package/installer. Earlier versions published: `infiltrator-filesystem-fat12_X.Y.Z_amd64.deb` and `filesystem-fat12-X.Y.Z-native-installer.run`. GitHub's default `Source code (zip)` and `Source code (tar.gz)` links are generated from the same tag, not uploaded copies. `VERSION` is the only standalone release version authority.
 
 ## Package ownership
 
