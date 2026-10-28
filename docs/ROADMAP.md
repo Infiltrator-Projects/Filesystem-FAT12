@@ -1,5 +1,7 @@
 # Filesystem-FAT12 roadmap
 
+**End-state requirement:** [one FAT12.so, one engine, universal consumers](ONE_MODULE_END_STATE.md). The `.ko` and `.efi` milestones below are transitional compatibility tasks only; replace them with BOOT's generic `.so` loader and the kernel's generic bridge once proven. Neither separate format-specific driver is a permanent distribution target.
+
 ## Immediate standalone milestone
 
 - [x] Preserve full pinned source in an isolated migration branch, including duplication where required.
@@ -9,7 +11,7 @@
 - [ ] Have InfiltratorOS install and verify both individual FAT modules.
 - [ ] Validate the current Defragmenter against independently installed matching FAT modules.
 
-## Subsequent milestones
+## Transitional compatibility and universal-loader milestones
 
 - [ ] Qualify `fat12.ko` against supported actual Linux kernels, including mount/write/rename/remount and FAT-width rejection, then design a safe version-specific delivery model.
 - [ ] Qualify `FAT12.efi` under OVMF and physical UEFI firmware, including correct read/write and explicit root/boot expectations.

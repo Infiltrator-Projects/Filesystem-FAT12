@@ -1,5 +1,7 @@
 # Documentation index — Filesystem-FAT12
 
+- [One-module destination](ONE_MODULE_END_STATE.md): FAT12.so is the entire driver, to be consumed by BOOT, the kernel and applications through generic adapters; existing `.ko`/`.efi` are transitional.
+
 - [Architecture](ARCHITECTURE.md): authority, module boundaries, consumers, dependency direction and filesystem-specific source.
 - [Design](DESIGN.md): decisions and failure policy.
 - [API](API.md): exported interfaces, ABI and filesystem identity.

@@ -1,5 +1,7 @@
 # Filesystem-FAT12 validation and release criteria
 
+**Completion standard:** [one FAT12.so shared across all consumers](ONE_MODULE_END_STATE.md), not merely independent tests of three binaries. Native read/write/format/defragmentation, real BOOT `.so` loading and kernel mount/root behavior must pass independently. Historical package tests below do not prove the universal loader is implemented.
+
 ## Evidence separation
 
 1. Source copied: import hash, local source files and preserved notices, but NO functional qualification.
