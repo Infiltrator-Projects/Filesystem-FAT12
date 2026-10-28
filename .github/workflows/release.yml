@@ -11,13 +11,34 @@ concurrency:
   group: filesystem-fat12-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  driver-runtime:
+    uses: ./.github/workflows/driver-runtime.yml
+    permissions:
+      contents: read
   qualify:
+    needs: driver-runtime
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install build and inspection prerequisites
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils python3 dpkg-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils kmod python3 dpkg-dev
+      - name: Retrieve QEMU-qualified kernel modules
+        uses: actions/download-artifact@v4
+        with:
+          name: fat12-fat16-ko-6.12.107-qemu-only
+          path: standalone/qualified-drivers
+      - name: Retrieve OVMF-qualified EFI drivers
+        uses: actions/download-artifact@v4
+        with:
+          name: fat12-fat16-efi-experimental
+          path: standalone/qualified-drivers
+      - name: Keep exactly this repository's drivers
+        run: |
+          set -euo pipefail
+          test -s standalone/qualified-drivers/fat12.ko
+          test -s standalone/qualified-drivers/FAT12.efi
+          rm -f standalone/qualified-drivers/fat16.ko standalone/qualified-drivers/FAT16.efi
       - name: Compile and exercise exactly one shared object
         run: make check
       - name: Build the DEB and native source installer
@@ -29,6 +50,7 @@ jobs:
           test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 2
           dpkg-deb --info dist/*.deb
           dpkg-deb --contents dist/*.deb
+          python3 standalone/verify_drivers.py dist/*.deb
           bash dist/*.run --help
           sudo bash dist/*.run --profile aggressive --system-package-mode
           version=$(cat VERSION)
@@ -43,6 +65,8 @@ jobs:
           assert "-O3 -march=native -mtune=native -flto=auto" in info
           assert f"SHA256: {hashlib.sha256(lib.read_bytes()).hexdigest()}\n" in info
           assert not Path("/System/Filesystems/FAT16.so").exists()
+          assert Path("/System/Kernel/Modules/6.12.107-qemu-tested-only/fat12.ko").is_file()
+          assert Path("/System/Kernel/Firmware/EFI/FAT12.efi").is_file()
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -77,4 +101,4 @@ jobs:
           fi
           gh release create "$tag" dist/*.deb dist/*.run \
             --target "$GITHUB_SHA" --title "Filesystem FAT12 ${version}" \
-            --notes "Independent FAT12.so shared object. GitHub generates the source ZIP and tar.gz from this exact tag. Kernel and EFI drivers are not included."
+            --notes "Independent FAT12 filesystem SO, QEMU-tested Linux 6.12.107 KO reference, and OVMF-tested EFI driver. Kernel KO is version-specific and is not automatically loaded. GitHub generates source ZIP and tar.gz from this tag."
