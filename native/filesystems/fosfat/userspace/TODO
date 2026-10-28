@@ -1,0 +1,5 @@
+TODO
+~~~~
+
+* Fix libfosfat in order to be multi-thread safe. It can improve significantly
+  the performances with the FUSE extension.

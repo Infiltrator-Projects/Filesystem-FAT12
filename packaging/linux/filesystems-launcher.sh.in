@@ -1,0 +1,4 @@
+#!/bin/sh
+# Linux desktop/terminal compatibility entry point for the native app layout.
+# The executable and build resources belong to the application, not /usr/lib.
+exec "@FILESYSTEMS_APPLICATION_ROOT@/Filesystems" "$@"

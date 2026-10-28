@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+[[ $# -eq 2 ]] || { echo "usage: $0 <main-package.deb> <output.run>" >&2; exit 2; }
+deb=$(readlink -f "$1")
+output=$2
+root=$(cd "$(dirname "$0")/.." && pwd)
+test "$(dpkg-deb -f "$deb" Package)" = filesystems
+test "$(dpkg-deb -f "$deb" Version)" = "$(tr -d '[:space:]' < "$root/VERSION")"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+cp "$deb" "$work/filesystems.deb"
+tar -C "$work" -czf "$work/payload.tar.gz" filesystems.deb
+cat > "$output" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if [[ "${1:-}" == --help ]]; then
+    cat <<'HELP'
+Filesystems native installer
+Installs the single filesystems Debian package.
+Includes /usr/bin/fsinspect, the native installer, driver sources and inactive
+per-filesystem desktop templates for project-native Amiga filesystems.
+Each Install button deploys only its own driver and desktop files together.
+Run normally; PolicyKit requests administrator authentication when needed.
+HELP
+    exit 0
+fi
+self=$(readlink -f "$0")
+if [[ ${EUID} -ne 0 ]]; then
+    [[ -x /usr/bin/pkexec ]] || { echo 'pkexec is required' >&2; exit 1; }
+    exec /usr/bin/pkexec "$self" --as-root
+fi
+[[ $# -eq 0 || ( $# -eq 1 && "$1" == --as-root ) ]] || { echo 'Refusing unexpected privileged invocation' >&2; exit 1; }
+archive_line=$(awk '/^__ARCHIVE_BELOW__$/{print NR + 1; exit}' "$self")
+[[ -n "$archive_line" ]] || exit 1
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+tail -n +"$archive_line" "$self" | tar -xz -C "$work"
+/usr/bin/apt-get -s install --no-install-recommends "$work/filesystems.deb" > "$work/plan"
+if awk '$1 == "Remv" { bad=1 } END { exit !bad }' "$work/plan"; then
+    cat "$work/plan" >&2
+    echo 'Refusing removal of an unrelated package' >&2
+    exit 1
+fi
+# The simulated plan is advisory; the final transaction must independently
+# refuse removals if package state changed after the preflight.
+/usr/bin/apt-get install -y --no-remove --no-install-recommends "$work/filesystems.deb"
+echo 'Filesystems installed successfully.'
+exit 0
+__ARCHIVE_BELOW__
+STUB
+cat "$work/payload.tar.gz" >> "$output"
+chmod 0755 "$output"

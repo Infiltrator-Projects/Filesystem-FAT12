@@ -1,0 +1,199 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+/* Internal scrub instrumentation shared by the validation fragments in this
+ * translation unit. It is deliberately runtime-only and does not affect the
+ * on-disk format or normal validation callers. */
+struct scrub_metadata_progress_context {
+    infs_scrub_progress_fn callback;
+    void *callback_context;
+    struct infs_scrub_report *report;
+    uint32_t stage;
+    uint64_t generation;
+    uint64_t done;
+    uint64_t total;
+    uint64_t stride;
+    uint64_t next_emit;
+};
+
+static void scrub_metadata_progress_begin(
+    struct scrub_metadata_progress_context *progress,
+    const struct infs_volume *vol, uint32_t stage, uint64_t total);
+static void scrub_metadata_progress_begin_generation(
+    struct scrub_metadata_progress_context *progress,
+    uint64_t generation, uint32_t stage, uint64_t total);
+static void scrub_metadata_progress_update(
+    struct scrub_metadata_progress_context *progress, uint64_t done);
+
+static int validate_integrity_metadata_progress(
+    struct infs_volume *vol, struct scrub_metadata_progress_context *progress,
+    int validate_snapshots);
+static int validate_namespace_graph_progress(
+    struct infs_volume *vol, struct scrub_metadata_progress_context *progress);
+static int validate_checksum_graph_progress(
+    struct infs_volume *vol, struct scrub_metadata_progress_context *progress);
+
+static int index_entry_id_compare(const void *left, const void *right)
+{
+    const struct infs_index_entry_disk *a = left;
+    const struct infs_index_entry_disk *b = right;
+    return memcmp(a->object_id, b->object_id, sizeof(a->object_id));
+}
+
+static int validate_index_entries_progress(
+    struct infs_volume *vol, struct scrub_metadata_progress_context *progress)
+{
+    uint8_t index_block[INFS_BLOCK_SIZE];
+    struct infs_index_payload_disk *payload;
+    int status = index_load(vol, index_block, &payload);
+    if (status != INFS_STATUS_OK)
+        return status;
+    struct infs_object_header_disk *index_header =
+        (struct infs_object_header_disk *)index_block;
+    if (!id_is_zero(index_header->parent_id))
+        return INFS_STATUS_CORRUPT;
+
+    struct infs_index_entry_disk *entries = NULL;
+    uint32_t count = 0;
+    status = index_snapshot(vol, &entries, &count);
+    if (status != INFS_STATUS_OK)
+        return status;
+    if (count != infs_le32_to_cpu(payload->entry_count)) {
+        free(entries);
+        return INFS_STATUS_CORRUPT;
+    }
+
+    /* Sort the private snapshot before duplicate-ID detection so validation is
+     * O(N log N) rather than quadratic in the object count. This is an
+     * in-memory validation strategy only; persistent index ordering is
+     * unchanged. */
+    if (count > 1u)
+        qsort(entries, count, sizeof(*entries), index_entry_id_compare);
+
+    scrub_metadata_progress_begin(
+        progress, vol, INFS_SCRUB_METADATA_INDEX_OBJECTS, count);
+
+    uint64_t total = infs_le64_to_cpu(vol->sb.total_blocks);
+    int root_seen = 0;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        uint64_t b = infs_le64_to_cpu(entries[i].object_block);
+        uint16_t type = infs_le16_to_cpu(entries[i].object_type);
+        if (id_is_zero(entries[i].object_id) || b >= total ||
+            !bitmap_get(vol->bitmap, b) ||
+            infs_le16_to_cpu(entries[i].flags) != 0 ||
+            infs_le32_to_cpu(entries[i].reserved) != 0 ||
+            !indexed_object_type_valid(
+                vol, type, entries[i].object_id)) {
+            free(entries);
+            return INFS_STATUS_CORRUPT;
+        }
+        if (i != 0 &&
+            memcmp(entries[i - 1u].object_id, entries[i].object_id, 16) == 0) {
+            free(entries);
+            return INFS_STATUS_CORRUPT;
+        }
+        uint8_t object[INFS_BLOCK_SIZE];
+        status = read_object(vol, b, object);
+        if (status != INFS_STATUS_OK) {
+            free(entries);
+            return status;
+        }
+        struct infs_object_header_disk *hdr =
+            (struct infs_object_header_disk *)object;
+        if (memcmp(hdr->object_id, entries[i].object_id, 16) != 0 ||
+            infs_le16_to_cpu(hdr->object_type) != type) {
+            free(entries);
+            return INFS_STATUS_CORRUPT;
+        }
+        if (memcmp(entries[i].object_id, vol->sb.root_object_id, 16) == 0) {
+            if (b != infs_le64_to_cpu(vol->sb.root_object_block) ||
+                type != INFS_OBJECT_DIRECTORY) {
+                free(entries);
+                return INFS_STATUS_CORRUPT;
+            }
+            ++root_seen;
+        }
+        scrub_metadata_progress_update(progress, (uint64_t)i + 1u);
+    }
+    free(entries);
+    if (root_seen != 1)
+        return INFS_STATUS_CORRUPT;
+    return INFS_STATUS_OK;
+}
+
+static int validate_index_entries(struct infs_volume *vol)
+{
+    return validate_index_entries_progress(vol, NULL);
+}
+
+static int checkpoint_matches(struct infs_volume *vol, uint64_t block_no,
+                              const struct infs_superblock_disk *best)
+{
+    uint8_t raw[INFS_BLOCK_SIZE];
+    if (read_block(vol, block_no, raw) != 0)
+        return 0;
+
+    struct infs_superblock_disk sb;
+    if (infs_decode_superblock(raw, &sb) != 0)
+        return 0;
+
+    /*
+     * checksum is an encoding field, not live superblock state.
+     * infs_encode_superblock() calculates it into the serialized block without
+     * mutating vol->sb, so comparing the decoded checksum bytes against the
+     * in-memory structure made every freshly published generation appear to
+     * have zero valid replicas until the volume was reopened.  The decode
+     * above has already authenticated the stored checksum; compare the
+     * semantic superblock with that field normalized away.
+     */
+    struct infs_superblock_disk expected = *best;
+    memcpy(expected.checksum, sb.checksum, sizeof(expected.checksum));
+    return memcmp(&sb, &expected, sizeof(sb)) == 0;
+}
+
+static int heal_checkpoints(struct infs_volume *vol)
+{
+    uint8_t repair[INFS_CHECKPOINT_COUNT] = {0};
+    unsigned repair_count = 0;
+
+    for (unsigned i = 0; i < INFS_CHECKPOINT_COUNT; ++i) {
+        uint64_t b = infs_le64_to_cpu(vol->sb.checkpoint_block[i]);
+
+        if (!checkpoint_matches(vol, b, &vol->sb)) {
+            repair[i] = 1;
+            ++repair_count;
+        }
+    }
+    if (!repair_count)
+        return INFS_STATUS_OK;
+
+    /*
+     * Never rewrite a replica that already matches the selected, fully
+     * validated checkpoint.  During recovery those copies are our surviving
+     * anchors; touching only stale/invalid replicas reduces both media writes
+     * and the power-loss window while healing a degraded set.
+     */
+    uint8_t raw[INFS_BLOCK_SIZE];
+    infs_status status = infs_encode_superblock(raw, &vol->sb);
+    if (status != INFS_STATUS_OK)
+        return status;
+
+    for (unsigned i = 0; i < INFS_CHECKPOINT_COUNT; ++i) {
+        uint64_t b;
+
+        if (!repair[i])
+            continue;
+        b = infs_le64_to_cpu(vol->sb.checkpoint_block[i]);
+        status = write_block(vol, b, raw);
+        if (status != INFS_STATUS_OK)
+            return status;
+    }
+    return infs_storage_flush(&vol->storage);
+}
+
+static void phase2_failpoint(const char *stage)
+{
+    const char *requested = getenv("INFS_TEST_CRASH_STAGE");
+    if (requested && strcmp(requested, stage) == 0)
+        _Exit(97);
+}

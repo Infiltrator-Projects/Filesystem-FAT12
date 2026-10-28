@@ -1,0 +1,479 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#ifndef INFILFS_VOLUME_H
+#define INFILFS_VOLUME_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "infilfs/format.h"
+#include "infilfs/security.h"
+#include "infilfs/storage.h"
+#include "infilfs/time.h"
+
+#define INFS_PATH_MAX 4096u
+#define INFS_DEFAULT_DEFERRED_PUBLISH_BYTES \
+    (UINT64_C(16) * 1024u * 1024u)
+
+#define INFS_POSIX_SET_PERMISSIONS UINT32_C(0x00000001)
+#define INFS_POSIX_SET_UID         UINT32_C(0x00000002)
+#define INFS_POSIX_SET_GID         UINT32_C(0x00000004)
+
+#define INFS_TIME_OMIT UINT32_C(0)
+#define INFS_TIME_NOW  UINT32_C(1)
+#define INFS_TIME_SET  UINT32_C(2)
+
+struct infs_create_options {
+    uint64_t portable_flags;
+    uint32_t posix_permissions;
+    uint32_t posix_uid;
+    uint32_t posix_gid;
+};
+
+struct infs_attributes {
+    uint8_t object_id[16];
+    uint16_t object_type;
+    uint64_t logical_size;
+    uint64_t allocated_size;
+    uint64_t link_count;
+    uint64_t portable_flags;
+    struct infs_timestamp birth_time;
+    struct infs_timestamp access_time;
+    struct infs_timestamp modification_time;
+    struct infs_timestamp change_time;
+    uint8_t security_object_id[16];
+    uint8_t extended_attributes_object_id[16];
+    uint32_t posix_permissions;
+    uint32_t posix_uid;
+    uint32_t posix_gid;
+};
+
+struct infs_typed_extension {
+    uint8_t type_id[16];
+    uint32_t type_version;
+    uint16_t flags;
+    uint8_t *data;
+    size_t data_size;
+};
+
+struct infs_time_update {
+    uint32_t birth_action;
+    uint32_t access_action;
+    uint32_t modification_action;
+    uint32_t change_action;
+    struct infs_timestamp birth_time;
+    struct infs_timestamp access_time;
+    struct infs_timestamp modification_time;
+    struct infs_timestamp change_time;
+};
+
+struct infs_deferred_range {
+    uint64_t start;
+    uint64_t count;
+};
+
+struct infs_free_extent;
+
+struct infs_volume {
+    struct infs_storage storage;
+    int writable;
+    int checkpoint_repair_needed;
+    /* Nonzero after the commit checkpoint may have reached storage but its
+     * durability could not be established. No further mutation is safe until
+     * the volume is closed and recovered from its physical checkpoints. */
+    infs_status reopen_required_status;
+    uint64_t size_bytes;
+    struct infs_superblock_disk sb;
+    uint8_t *bitmap;
+    size_t bitmap_bytes;
+
+    /*
+     * Runtime cache of the committed Format 0.18 allocation-tree geometry.
+     * The page addresses are validated while opening a checkpoint graph and
+     * replaced only after a newer primary checkpoint is durably committed.
+     * This avoids rereading every allocation leaf/branch on each fsync.
+     */
+    uint64_t *allocation_leaf_blocks;
+    uint64_t *allocation_branch_blocks;
+    size_t allocation_leaf_count;
+    size_t allocation_branch_count;
+    size_t allocation_level1_count;
+    size_t allocation_level2_count;
+
+    /* Transaction state. Adapters may deliberately leave a transaction open
+     * across buffered mutations and publish it with infs_volume_sync(). */
+    int tx_active;
+    infs_status tx_error;
+    struct infs_superblock_disk tx_base_sb;
+    struct infs_deferred_range *tx_deferred;
+    size_t tx_deferred_count;
+    size_t tx_deferred_capacity;
+    /* Allocation journal replaces the former full-volume bitmap clone.
+     * Frees remain deferred until publication, so rollback only needs to
+     * clear blocks allocated since the transaction/savepoint began. */
+    struct infs_deferred_range *tx_allocated;
+    size_t tx_allocated_count;
+    size_t tx_allocated_capacity;
+
+    /* Savepoint for one externally visible mutation inside a deferred
+     * transaction. Earlier successful syscalls remain intact if this one
+     * fails. */
+    int tx_operation_active;
+    struct infs_superblock_disk tx_operation_sb;
+    size_t tx_operation_allocated_count;
+    size_t tx_operation_deferred_count;
+    int tx_operation_had_last_deferred;
+    struct infs_deferred_range tx_operation_last_deferred;
+    uint64_t tx_operation_pending_bytes;
+    uint64_t tx_operation_data_cursor;
+    uint64_t tx_operation_metadata_cursor;
+
+    /* Generic publication policy. With deferred publication enabled, normal
+     * mutators remain in the active transaction until the approximate dirty
+     * byte threshold is reached. Explicit infs_volume_sync() always publishes
+     * immediately. This is an adapter policy, not an on-disk format feature. */
+    int deferred_publish;
+    uint64_t deferred_publish_threshold_bytes;
+    uint64_t tx_pending_bytes;
+
+    /* Runtime-only performance hints. These never appear on disk and are
+     * shared by every adapter. File data grows upward while metadata grows
+     * downward, preventing checksum/CoW bookkeeping from fragmenting an
+     * otherwise sequential file. object_cache accelerates stable object-id
+     * to block lookups for the paged index. */
+    uint64_t data_allocation_cursor;
+    uint64_t metadata_allocation_cursor;
+    /*
+     * Rebuildable runtime index of maximal free runs. The allocation bitmap
+     * remains authoritative on disk and in memory; this cache exists only to
+     * avoid rescanning the whole volume for every allocation.
+     */
+    struct infs_free_extent *free_extents;
+    size_t free_extent_count;
+    size_t free_extent_capacity;
+    int free_extent_index_valid;
+    struct infs_object_cache_entry *object_cache;
+    size_t object_cache_slots;
+    int object_cache_complete;
+    struct infs_directory_cache_entry *directory_cache;
+    size_t directory_cache_slots;
+    struct infs_directory_cache_state *directory_cache_states;
+    size_t directory_cache_state_slots;
+
+    /* Runtime-only checksum-chain cursor. Sequential growth must not restart
+     * lookup from the persistent chain head for every checksum group. */
+    uint8_t checksum_cursor_owner_id[16];
+    uint8_t checksum_cursor_object_id[16];
+    uint64_t checksum_cursor_start;
+    int checksum_cursor_valid;
+    uint64_t checksum_cursor_hits;
+    uint64_t checksum_chain_steps;
+
+    /* Internal recursion contexts shared by ephemeral read-only snapshot
+     * views. They prevent repeated traversal of the same retained generation
+     * in the bounded catalog DAG and are never persistent. */
+    void *snapshot_validation_context;
+    void *snapshot_scrub_context;
+
+    /* Ephemeral retained-generation view. Its allocation bitmap and validated
+     * allocation-tree cache are reconstructed from the snapshot's persistent
+     * CoW allocation-tree root rather than from a copied bitmap image. */
+    int snapshot_view;
+};
+
+struct infs_lookup {
+    uint8_t object_id[16];
+    uint64_t block;
+    uint16_t type;
+};
+
+struct infs_scrub_report {
+    uint64_t files_checked;
+    uint64_t data_blocks_checked;
+    uint64_t checksum_errors;
+    uint64_t metadata_errors;
+    uint64_t scrub_generation;
+    uint64_t snapshots_checked;
+};
+
+enum infs_scrub_phase {
+    INFS_SCRUB_PHASE_METADATA = 1,
+    INFS_SCRUB_PHASE_DATA = 2,
+    INFS_SCRUB_PHASE_SNAPSHOTS = 3,
+    INFS_SCRUB_PHASE_COMPLETE = 4
+};
+
+/* Metadata scrub sub-stages are deliberately explicit. A full metadata pass
+ * performs several independently expensive graph walks; exposing the active
+ * sub-stage plus a real completed/total counter makes a slow pass diagnosable
+ * instead of presenting a motionless "metadata 0/0" line. */
+enum infs_scrub_metadata_stage {
+    INFS_SCRUB_METADATA_NONE = 0,
+    INFS_SCRUB_METADATA_INDEX_OBJECTS = 1,
+    INFS_SCRUB_METADATA_OWNERSHIP_OBJECTS = 2,
+    INFS_SCRUB_METADATA_SNAPSHOT_BITMAP = 3,
+    INFS_SCRUB_METADATA_SNAPSHOT_UNION = 4,
+    INFS_SCRUB_METADATA_OWNERSHIP_BITMAP = 5,
+    INFS_SCRUB_METADATA_INTEGRITY_OBJECTS = 6,
+    INFS_SCRUB_METADATA_NAMESPACE_DIRECTORIES = 7,
+    INFS_SCRUB_METADATA_NAMESPACE_LINKS = 8,
+    INFS_SCRUB_METADATA_NAMESPACE_REACHABILITY = 9,
+    INFS_SCRUB_METADATA_CHECKSUM_FILES = 10,
+    INFS_SCRUB_METADATA_SNAPSHOT_GENERATIONS = 11,
+    INFS_SCRUB_METADATA_OWNERSHIP_DATA_BLOCKS = 12
+};
+
+struct infs_scrub_progress {
+    uint32_t phase;
+    uint32_t metadata_stage;
+    uint64_t metadata_generation;
+    uint64_t metadata_items_checked;
+    uint64_t metadata_items_total;
+    uint64_t files_checked;
+    uint64_t data_blocks_checked;
+    uint64_t snapshots_checked;
+    uint64_t checksum_errors;
+    uint64_t metadata_errors;
+};
+
+typedef void (*infs_scrub_progress_fn)(
+    const struct infs_scrub_progress *progress, void *context);
+
+struct infs_compression_metrics {
+    uint64_t generation;
+    uint64_t files_scanned;
+    uint64_t snapshots_scanned;
+    uint64_t referenced_logical_bytes;
+    uint64_t compressed_referenced_logical_bytes;
+    uint64_t unique_compressed_logical_bytes;
+    uint64_t unique_compressed_physical_bytes;
+    uint64_t compression_saved_bytes;
+    uint64_t unique_compressed_streams;
+};
+
+struct infs_dir_item {
+    char name[INFS_NAME_MAX + 1u];
+    uint8_t object_id[16];
+    uint16_t type;
+};
+
+struct infs_snapshot_info {
+    char name[INFS_SNAPSHOT_NAME_MAX + 1u];
+    uint64_t generation;
+    struct infs_timestamp created_time;
+};
+
+struct infs_named_stream_info {
+    char name[INFS_NAME_MAX + 1u];
+    uint64_t logical_size;
+};
+
+/* Public portable-volume contract:
+ * - a successful open transfers the supplied storage context into the volume;
+ *   infs_volume_close() releases all owned runtime/storage resources;
+ * - the volume object is mutable session state. Direct concurrent callers must
+ *   provide the serialization required by their adapter rather than assuming
+ *   implicit locking in the portable core;
+ * - namespace/path operations validate InfiltratorFS path/name rules and do
+ *   not inherit host-platform pathname semantics;
+ * - list operations allocate result arrays owned by the caller, which must be
+ *   released with the corresponding infs_free_* helper;
+ * - byte-count APIs return a non-negative count on success or a negative
+ *   infs_status value on failure;
+ * - infs_volume_sync() is the explicit publication/durability boundary for
+ *   work retained by deferred-publication policy. */
+infs_status infs_volume_open_storage(struct infs_volume *vol,
+                                     struct infs_storage *storage,
+                                     int writable);
+void infs_volume_close(struct infs_volume *vol);
+infs_status infs_volume_sync(struct infs_volume *vol);
+/* Resize the filesystem geometry inside an already-sized backing store.
+ * Grow requires the backing file/device to be enlarged first. Shrink is
+ * fail-closed: it succeeds only when every block outside the requested
+ * geometry is relocatable format bookkeeping; live user/metadata allocation
+ * or named snapshots make the operation return BUSY rather than risk data. */
+infs_status infs_volume_resize(struct infs_volume *vol,
+                               uint64_t new_size_bytes);
+/* Enable or disable bounded deferred publication for normal mutators.
+ * threshold_bytes == 0 selects INFS_DEFAULT_DEFERRED_PUBLISH_BYTES.
+ * Explicit infs_volume_sync() remains a forced durability boundary. */
+infs_status infs_volume_set_deferred_publish(struct infs_volume *vol,
+                                             int enabled,
+                                             uint64_t threshold_bytes);
+
+infs_status infs_lookup_path(struct infs_volume *vol, const char *path,
+                             struct infs_lookup *out);
+infs_status infs_get_attributes(struct infs_volume *vol, const char *path,
+                                struct infs_attributes *attributes);
+infs_status infs_set_typed_extension(
+    struct infs_volume *vol, const char *path,
+    const struct infs_typed_extension *extension);
+infs_status infs_get_typed_extension(
+    struct infs_volume *vol, const char *path,
+    struct infs_typed_extension *extension);
+void infs_free_typed_extension(struct infs_typed_extension *extension);
+
+/* Portable named metadata streams. Names are UTF-8 and belong to the owner
+ * object rather than its directory namespace. Stream contents use the same
+ * sparse/CoW/checksum engine as ordinary files. set() atomically replaces the
+ * complete named stream; read() supports arbitrary offsets. */
+infs_status infs_named_stream_set(
+    struct infs_volume *vol, const char *path, const char *name,
+    const void *data, size_t size);
+int64_t infs_named_stream_read(
+    struct infs_volume *vol, const char *path, const char *name,
+    void *data, size_t size, uint64_t offset);
+infs_status infs_named_stream_delete(
+    struct infs_volume *vol, const char *path, const char *name);
+infs_status infs_named_stream_list(
+    struct infs_volume *vol, const char *path,
+    struct infs_named_stream_info **streams, size_t *count);
+void infs_free_named_stream_infos(struct infs_named_stream_info *streams);
+/* On success, list_dir stores a heap-owned array in *items (or NULL for an
+ * empty result) and its element count in *count. Release it with
+ * infs_free_dir_items(). */
+infs_status infs_list_dir(struct infs_volume *vol, const char *path,
+                          struct infs_dir_item **items, size_t *count);
+void infs_free_dir_items(struct infs_dir_item *items);
+
+infs_status infs_create_file(struct infs_volume *vol, const char *path,
+                             const struct infs_create_options *options);
+infs_status infs_mkdir(struct infs_volume *vol, const char *path,
+                       const struct infs_create_options *options);
+infs_status infs_create_symlink(struct infs_volume *vol, const char *path,
+                                const char *target,
+                                const struct infs_create_options *options);
+infs_status infs_read_symlink(struct infs_volume *vol, const char *path,
+                              char *target, size_t capacity,
+                              size_t *length_out);
+infs_status infs_link_file(struct infs_volume *vol, const char *existing_path,
+                           const char *new_path);
+infs_status infs_link_file_ex(struct infs_volume *vol,
+                              const char *existing_path,
+                              const char *new_path, int replace);
+infs_status infs_unlink(struct infs_volume *vol, const char *path);
+infs_status infs_rmdir(struct infs_volume *vol, const char *path);
+infs_status infs_rename(struct infs_volume *vol, const char *oldpath,
+                        const char *newpath);
+infs_status infs_rename_ex(struct infs_volume *vol, const char *oldpath,
+                           const char *newpath, int replace);
+
+int64_t infs_read_file(struct infs_volume *vol, const char *path, void *buf,
+                       size_t size, uint64_t offset);
+/* Durable convenience write: the successful call publishes the transaction. */
+int64_t infs_write_file(struct infs_volume *vol, const char *path,
+                        const void *buf, size_t size, uint64_t offset);
+/* Adapter-oriented write: with deferred publication enabled, successful calls
+ * remain in the active transaction until the configured threshold or an
+ * explicit infs_volume_sync(); otherwise this behaves like a durable write. */
+int64_t infs_write_file_buffered(struct infs_volume *vol, const char *path,
+                                 const void *buf, size_t size,
+                                 uint64_t offset);
+infs_status infs_truncate_file(struct infs_volume *vol, const char *path,
+                               uint64_t size);
+infs_status infs_punch_hole(struct infs_volume *vol, const char *path,
+                            uint64_t offset, uint64_t length);
+infs_status infs_reflink_file(struct infs_volume *vol, const char *source_path,
+                              const char *destination_path);
+
+infs_status infs_snapshot_create(struct infs_volume *vol, const char *name);
+infs_status infs_snapshot_delete(struct infs_volume *vol, const char *name);
+/* Atomically make a retained generation the new live generation.  This is a
+ * destructive whole-volume rollback: state created after the retained
+ * generation, including newer snapshot-catalog state, is intentionally
+ * discarded.  The rollback itself publishes a fresh generation so checkpoint
+ * generation numbers remain monotonic. */
+infs_status infs_snapshot_rollback(struct infs_volume *vol, const char *name);
+/* Snapshot-list ownership mirrors list_dir: on success the caller owns the
+ * returned array and releases it with infs_free_snapshot_infos(). */
+infs_status infs_snapshot_list(struct infs_volume *vol,
+                               struct infs_snapshot_info **snapshots,
+                               size_t *count);
+void infs_free_snapshot_infos(struct infs_snapshot_info *snapshots);
+infs_status infs_snapshot_lookup_path(struct infs_volume *vol,
+                                      const char *snapshot, const char *path,
+                                      struct infs_lookup *out);
+infs_status infs_snapshot_get_attributes(struct infs_volume *vol,
+                                          const char *snapshot,
+                                          const char *path,
+                                          struct infs_attributes *attributes);
+infs_status infs_snapshot_list_dir(struct infs_volume *vol,
+                                   const char *snapshot, const char *path,
+                                   struct infs_dir_item **items,
+                                   size_t *count);
+int64_t infs_snapshot_read_file(struct infs_volume *vol,
+                                const char *snapshot, const char *path,
+                                void *buf, size_t size, uint64_t offset);
+infs_status infs_snapshot_read_symlink(struct infs_volume *vol,
+                                       const char *snapshot,
+                                       const char *path, char *target,
+                                       size_t capacity, size_t *length_out);
+
+/* Restore one retained file, symlink or directory tree into the live namespace
+ * without rolling back unrelated live state. The restore is one transaction:
+ * replace==0 refuses an existing destination; replace!=0 atomically replaces
+ * the selected live subtree. Portable flags, POSIX compatibility metadata,
+ * timestamps, portable security descriptors/principals, typed extensions,
+ * named streams and regular-file hard-link identity inside the restored tree
+ * are preserved. */
+infs_status infs_snapshot_restore_path(
+    struct infs_volume *vol, const char *snapshot,
+    const char *source_path, const char *destination_path, int replace);
+
+infs_status infs_set_posix_compat(struct infs_volume *vol, const char *path,
+                                  uint32_t mask, uint32_t permissions,
+                                  uint32_t uid, uint32_t gid);
+infs_status infs_set_times(struct infs_volume *vol, const char *path,
+                           const struct infs_time_update *update);
+infs_status infs_set_portable_flags(struct infs_volume *vol, const char *path,
+                                    uint64_t portable_flags);
+
+/* Portable principal catalog. A zero principal_id passed to put() allocates a
+ * new stable 128-bit ID and writes it back to the caller structure. Nonzero IDs
+ * update the existing principal or create that exact ID when unused. */
+infs_status infs_put_security_principal(
+    struct infs_volume *vol, struct infs_security_principal *principal);
+infs_status infs_get_security_principal(
+    struct infs_volume *vol, const uint8_t principal_id[16],
+    struct infs_security_principal *principal);
+infs_status infs_find_security_principal_by_binding(
+    struct infs_volume *vol, const struct infs_security_binding *binding,
+    uint8_t principal_id_out[16]);
+
+/* Replace or remove the shareable portable security descriptor attached to one
+ * namespace object. A NULL descriptor removes it. */
+infs_status infs_set_security_descriptor(
+    struct infs_volume *vol, const char *path,
+    const struct infs_security_descriptor *descriptor);
+infs_status infs_get_security_descriptor(
+    struct infs_volume *vol, const char *path,
+    struct infs_security_descriptor *descriptor);
+
+infs_status infs_scrub(struct infs_volume *vol,
+                       struct infs_scrub_report *report);
+/* Run the same authoritative scrub while reporting real work completed.
+ * Metadata progress includes the active graph-validation sub-stage, retained
+ * generation, and an actual completed/total work counter. Progress callbacks
+ * are advisory and never alter on-disk state. */
+infs_status infs_scrub_with_progress(
+    struct infs_volume *vol, struct infs_scrub_report *report,
+    infs_scrub_progress_fn progress, void *context);
+/*
+ * Report physical compression savings without conflating compression with
+ * sparse holes or reflink/snapshot sharing. The live generation and all named
+ * retained snapshots are scanned; an identical compressed physical stream is
+ * counted once in the unique/saved fields even when referenced many times.
+ */
+infs_status infs_compression_metrics(
+    struct infs_volume *vol, struct infs_compression_metrics *metrics);
+/* Scrub one immutable named snapshot. The report records the generation that
+ * was actually verified. */
+infs_status infs_snapshot_scrub(struct infs_volume *vol, const char *snapshot,
+                                struct infs_scrub_report *report);
+/* Capture the current committed generation as a temporary retained snapshot,
+ * scrub that immutable view, then remove the temporary retention record. This
+ * gives adapters a stable scrub target without holding the live namespace at a
+ * moving generation. */
+infs_status infs_scrub_online(struct infs_volume *vol,
+                              struct infs_scrub_report *report);
+
+#endif

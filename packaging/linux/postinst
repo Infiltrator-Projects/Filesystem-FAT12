@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+case "$1" in
+    configure)
+        /usr/lib/filesystems/desktop-integration sync
+        ;;
+esac
+
+exit 0

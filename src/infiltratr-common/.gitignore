@@ -1,0 +1,41 @@
+# Build systems
+build/
+build-*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+install_manifest.txt
+compile_commands.json
+
+# Compiler, linker and coverage outputs
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exp
+*.pdb
+*.gcda
+*.gcno
+*.gcov
+coverage/
+
+# Xcode / Visual Studio local state
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.vs/
+out/
+
+# Local editor and operating-system debris
+.DS_Store
+*~
+*.swp
+*.swo
+*.tmp
