@@ -15,8 +15,28 @@ jobs:
     uses: ./.github/workflows/driver-runtime.yml
     permissions:
       contents: read
+  ubuntu-mint-kernel-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ubuntu 24.04 generic kernel headers
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential kmod linux-headers-generic
+      - name: Build selected FAT12 module against Mint 22-era Linux 6.8 ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t headers < <(find /usr/src -maxdepth 1 -type d -name 'linux-headers-6.8.*-generic' | sort -V)
+          if [[ ${#headers[@]} -eq 0 ]]; then
+            echo "Ubuntu GA Linux 6.8 headers are missing" >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/compat-ko"
+          python3 standalone/kernel.py --kernel-tree "${headers[-1]}" --output "$RUNNER_TEMP/compat-ko"
+          test "$(modinfo -F name "$RUNNER_TEMP/compat-ko/fat12.ko")" = fat12
+          modinfo "$RUNNER_TEMP/compat-ko/fat12.ko"
   qualify:
-    needs: driver-runtime
+    needs: [driver-runtime, ubuntu-mint-kernel-compat]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
