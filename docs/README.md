@@ -5,6 +5,8 @@
 - [API](API.md): exported interfaces, ABI and filesystem identity.
 - [Validation](VALIDATION.md): automated checks, evidence classes and release gates.
 - [Packaging](PACKAGING.md): .deb/.run/GitHub source ZIP, upgrades, installer handover and installed files.
+- [Forensic audit](FORENSIC-AUDIT.md): what the standalone green checks prove and what remains unqualified.
+- [Decisions](DECISIONS.md): durable architecture and ownership decisions.
 - [Source provenance](SOURCE.md): exact extraction source, copied shared code, attribution and external licences.
 - [Security](SECURITY.md): trust, permissions, destructive-operation constraints and vulnerability handling.
 - [Roadmap](ROADMAP.md): remaining independent kernel/EFI validation, media coverage and consolidation.
