@@ -42,6 +42,12 @@ def main():
         raise RuntimeError("Kernel build tree lacks kernelrelease")
     if not SOURCE.is_dir() or not (SOURCE / f"namei_fat{WIDTH}.c").is_file():
         raise RuntimeError("The selected FAT kernel driver sources were not packaged")
+    # Linux FAT core APIs changed between 6.8 and 6.12. Never link a 6.12
+    # namespace driver against a 6.8 core with undefined fat_* functions.
+    compat68 = release.startswith("6.8.")
+    if not compat68 and not release.startswith("6.12."):
+        raise RuntimeError("Unsupported Linux FAT-core ABI: " + release +
+                           " (qualified source variants: 6.8 and 6.12)")
     target_dir = args.output.resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
     destination = target_dir / MODULE
@@ -51,6 +57,12 @@ def main():
         work = Path(tmp)
         shutil.copytree(SOURCE, work / "src")
         src = work / "src"
+        if compat68:
+            legacy = SOURCE / "compat" / "linux-6.8"
+            for filename in ("fat.h", "namei_vfat.c"):
+                if not (legacy / filename).is_file():
+                    raise RuntimeError("Missing locally copied Linux 6.8 FAT compatibility source")
+                shutil.copyfile(legacy / filename, src / filename)
         # Build exactly this repository's selected filesystem, not both copies.
         (src / "Makefile").write_text(
             "# SPDX-License-Identifier: GPL-2.0\n"
