@@ -35,6 +35,8 @@ def build_deb(profile, dest):
         module.parent.mkdir(parents=True)
         flags = fsbuild.build(profile, module)
         fsbuild.test(module)
+        # The fixture test is an ephemeral QA executable, never a filesystem driver.
+        (module.parent / f"fat{WIDTH}-module-test").unlink()
         info_dir = root / "System/Resources/Documentation" / REPO
         info_dir.mkdir(parents=True)
         digest = hashlib.sha256(module.read_bytes()).hexdigest()
