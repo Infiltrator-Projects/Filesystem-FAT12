@@ -31,4 +31,4 @@ FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,
 
 ## Independence
 
-No network operation occurs in the regular shared-object build, and only this format's `.so` is installed. Two repositories can legitimately contain the same copied portable, defrag, Linux, EFI and Common source until consolidation; changes must be ported explicitly and independently qualified. Copying shared code does not erase upstream copyright or licence obligations.
+No network operation occurs in the regular shared-object build. The 0.1.2 candidate additionally packages its selected, independently runtime-qualified kernel and UEFI drivers, as documented in [the triple-driver acceptance contract](COMPLETE_FILESYSTEM_ACCEPTANCE.md). Two repositories can legitimately contain the same copied portable, defrag, Linux, EFI and Common source until consolidation; changes must be ported explicitly and independently qualified. Copying shared code does not erase upstream copyright or licence obligations.

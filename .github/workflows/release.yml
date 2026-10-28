@@ -11,13 +11,54 @@ concurrency:
   group: filesystem-fat12-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  driver-runtime:
+    uses: ./.github/workflows/driver-runtime.yml
+    permissions:
+      contents: read
+  ubuntu-mint-kernel-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ubuntu 24.04 generic kernel headers
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential kmod linux-headers-generic
+      - name: Build selected FAT12 module against Mint 22-era Linux 6.8 ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t headers < <(find /usr/src -maxdepth 1 -type d -name 'linux-headers-6.8.*-generic' | sort -V)
+          if [[ ${#headers[@]} -eq 0 ]]; then
+            echo "Ubuntu GA Linux 6.8 headers are missing" >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/compat-ko"
+          python3 standalone/kernel.py --kernel-tree "${headers[-1]}" --output "$RUNNER_TEMP/compat-ko"
+          test "$(modinfo -F name "$RUNNER_TEMP/compat-ko/fat12.ko")" = fat12
+          modinfo "$RUNNER_TEMP/compat-ko/fat12.ko"
   qualify:
+    needs: [driver-runtime, ubuntu-mint-kernel-compat]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install build and inspection prerequisites
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils python3 dpkg-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils kmod python3 dpkg-dev
+      - name: Retrieve QEMU-qualified kernel modules
+        uses: actions/download-artifact@v4
+        with:
+          name: fat12-fat16-ko-6.12.107-qemu-only
+          path: standalone/qualified-drivers
+      - name: Retrieve OVMF-qualified EFI drivers
+        uses: actions/download-artifact@v4
+        with:
+          name: fat12-fat16-efi-experimental
+          path: standalone/qualified-drivers
+      - name: Keep exactly this repository's drivers
+        run: |
+          set -euo pipefail
+          test -s standalone/qualified-drivers/fat12.ko
+          test -s standalone/qualified-drivers/FAT12.efi
+          rm -f standalone/qualified-drivers/fat16.ko standalone/qualified-drivers/FAT16.efi
       - name: Compile and exercise exactly one shared object
         run: make check
       - name: Build the DEB and native source installer
@@ -29,8 +70,9 @@ jobs:
           test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 2
           dpkg-deb --info dist/*.deb
           dpkg-deb --contents dist/*.deb
+          python3 standalone/verify_drivers.py dist/*.deb
           bash dist/*.run --help
-          sudo bash dist/*.run --profile aggressive --system-package-mode
+          sudo --preserve-env=GITHUB_ACTIONS bash dist/*.run --profile aggressive --system-package-mode --ci-reference-kernel-only
           version=$(cat VERSION)
           test "$(dpkg-query -W -f='${Version}' infiltrator-filesystem-fat12)" = "${version}+native1"
           python3 standalone/build.py --profile portable --output build/FAT12.so --check
@@ -43,6 +85,8 @@ jobs:
           assert "-O3 -march=native -mtune=native -flto=auto" in info
           assert f"SHA256: {hashlib.sha256(lib.read_bytes()).hexdigest()}\n" in info
           assert not Path("/System/Filesystems/FAT16.so").exists()
+          assert Path("/System/Kernel/Modules/6.12.107-qemu-tested-only/fat12.ko").is_file()
+          assert Path("/System/Kernel/Firmware/EFI/FAT12.efi").is_file()
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -77,4 +121,4 @@ jobs:
           fi
           gh release create "$tag" dist/*.deb dist/*.run \
             --target "$GITHUB_SHA" --title "Filesystem FAT12 ${version}" \
-            --notes "Independent FAT12.so shared object. GitHub generates the source ZIP and tar.gz from this exact tag. Kernel and EFI drivers are not included."
+            --notes "Independent FAT12 filesystem SO, QEMU-tested Linux 6.12.107 KO reference, and OVMF-tested EFI driver. Kernel KO is version-specific and is not automatically loaded. GitHub generates source ZIP and tar.gz from this tag."

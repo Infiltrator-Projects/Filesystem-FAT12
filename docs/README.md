@@ -1,5 +1,6 @@
 # Documentation index — Filesystem-FAT12
 
+- [Complete three-driver acceptance](COMPLETE_FILESYSTEM_ACCEPTANCE.md): required functional SO/KO/EFI proof and packaging.
 - [Architecture](ARCHITECTURE.md): authority, module boundaries, consumers, dependency direction and filesystem-specific source.
 - [Design](DESIGN.md): decisions and failure policy.
 - [API](API.md): exported interfaces, ABI and filesystem identity.
