@@ -1,0 +1,80 @@
+name: Import pinned Filesystems source into FAT12 migration branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/import-source.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out independent repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Stage complete exact-source copy on isolated branch
+        shell: bash
+        env:
+          SOURCE_SHA: d7a572dcd0d11f7bc69cc05e09e3e944be747838
+          MIGRATION_BRANCH: migration/full-source-fat12-20261028
+          FAT_WIDTH: "12"
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$MIGRATION_BRANCH" >/dev/null 2>&1; then
+            echo "Migration branch already exists: $MIGRATION_BRANCH; refusing to overwrite."
+            exit 1
+          fi
+          source_dir="$RUNNER_TEMP/filesystems-source"
+          git clone --quiet https://github.com/Infiltrator-Projects/Filesystems.git "$source_dir"
+          git -C "$source_dir" checkout --detach "$SOURCE_SHA"
+          git -C "$source_dir" submodule update --init --recursive
+          git switch -c "$MIGRATION_BRANCH"
+          rsync -a --exclude='.git' --exclude='.gitmodules' --exclude='.github' \
+            "$source_dir/" "$GITHUB_WORKSPACE/"
+          mv README.md FILESYSTEMS-SOURCE-README.md
+          rm -f .github/workflows/import-source.yml
+          cat > README.md <<EOF
+          # Filesystem FAT${FAT_WIDTH}
+
+          Standalone filesystem repository migration in progress.
+          This migration branch contains the full original Filesystems source at
+          commit \`${SOURCE_SHA}\` as a safety-preserving starting snapshot.
+          It intentionally contains unrelated filesystem code to be trimmed after
+          independent FAT${FAT_WIDTH}.so, fat${FAT_WIDTH}.ko and FAT${FAT_WIDTH}.efi
+          builds, tests and packaging are created. No release is authorised by this copy.
+
+          The FAT${FAT_WIDTH} defragmentation and recovery engine must remain in
+          FAT${FAT_WIDTH}.so with the ABI expected by Defragmenter. The central
+          Filesystems repository and Defragmenter have not been modified.
+          The original upstream README is FILESYSTEMS-SOURCE-README.md.
+          EOF
+          cat > MIGRATION-PROVENANCE.md <<EOF
+          # Source and licence provenance
+
+          Original: https://github.com/Infiltrator-Projects/Filesystems
+          Pinned source commit: ${SOURCE_SHA}
+          Target variant: FAT${FAT_WIDTH}
+          Imported on an isolated migration branch; not a qualified standalone driver.
+
+          This is a full, untrimmed source copy. It includes the existing Linux,
+          TianoCore EDK2, FatFs, Common, and defragmentation sources as found in the
+          pinned source, with their licence and attribution notices preserved.
+          Common was copied from the pinned Git submodule into an ordinary directory.
+          Existing Filesystems files and Defragmenter were not modified.
+
+          No published package should install this snapshot as an independent
+          FAT${FAT_WIDTH} driver until one-variant builds, independent validation,
+          provenance audits and installation ownership transitions are complete.
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -f
+          git commit -m "Stage pinned full Filesystems source for standalone FAT${FAT_WIDTH} migration"
+          git push --set-upstream origin "$MIGRATION_BRANCH"
