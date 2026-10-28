@@ -51,8 +51,10 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+  native-drivers:
+    uses: ./.github/workflows/drivers.yml
   publish:
-    needs: qualify
+    needs: [qualify, native-drivers]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
@@ -63,6 +65,14 @@ jobs:
         with:
           name: fat12-qualified-${{ github.sha }}
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: fat12-fat16-efi-experimental
+          path: build/native
+      - uses: actions/download-artifact@v4
+        with:
+          name: fat12-fat16-ko-6.12.107-qemu-only
+          path: build/native
       - name: Publish exact qualified release once
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,10 +82,15 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
           version=$(cat VERSION)
           tag="v${version}"
+          test -s build/native/FAT12.efi
+          test -s build/native/fat12.ko
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Immutable $tag already exists; no release update required."
             exit 0
           fi
-          gh release create "$tag" dist/*.deb dist/*.run \
+          install -m 0644 "build/native/FAT12.efi" "dist/FAT12.efi"
+          install -m 0644 "build/native/fat12.ko" "dist/fat12-linux-6.12.107.ko"
+          sha256sum dist/*.deb dist/*.run dist/*.efi dist/*.ko
+          gh release create "$tag" dist/*.deb dist/*.run dist/*.efi dist/*.ko \
             --target "$GITHUB_SHA" --title "Filesystem FAT12 ${version}" \
-            --notes "Independent FAT12.so shared object. GitHub generates the source ZIP and tar.gz from this exact tag. Kernel and EFI drivers are not included."
+            --notes "Independent FAT12.so portable package and source-first native RUN; FAT12.efi is independently OVMF-tested for x86-64 boot services; fat12-linux-6.12.107.ko is QEMU-tested for ONLY that pinned Linux 6.12.107 kernel and compatible FAT core, and must be rebuilt for any other host kernel. Physical-drive safety, arbitrary-root boot, and generic signed kernel installation are NOT certified."

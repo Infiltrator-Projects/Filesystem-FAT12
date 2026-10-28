@@ -1,7 +1,6 @@
 name: FAT12/FAT16 source-owned kernel and UEFI runtime qualification
 on:
-  push:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read
