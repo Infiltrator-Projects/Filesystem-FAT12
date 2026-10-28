@@ -11,8 +11,10 @@
 
 ## Subsequent milestones
 
-- [ ] Qualify `fat12.ko` against supported actual Linux kernels, including mount/write/rename/remount and FAT-width rejection, then design a safe version-specific delivery model.
-- [ ] Qualify `FAT12.efi` under OVMF and physical UEFI firmware, including correct read/write and explicit root/boot expectations.
+- [ ] Qualify `fat12.ko` on QEMU Linux 6.12.107, package tested bytes, support installation of a native module built with the running host kernel headers; expand physical Mint/Debian kernel compatibility before claiming universal support.
+- [ ] Qualify `FAT12.efi` under OVMF with real read/write tests, then qualify physical firmware and boot-from-volume separately.
 - [ ] Expand crash/recovery, negative-volume and interrupted-media testing and physical removable-media coverage.
 - [ ] Remove imported unrelated Filesystems sources and duplicate helpers only after independent builds no longer need them.
 - [ ] Introduce a backwards-compatible source/ABI release process and lifecycle compatibility matrix.
+
+**The 0.1.2 branch is not complete based on compilation alone.** All three drivers, cross-format rejection, source-based install and exact tested release bytes must pass before the PR can merge. See [full acceptance criteria](COMPLETE_FILESYSTEM_ACCEPTANCE.md).

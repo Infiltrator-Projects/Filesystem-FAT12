@@ -8,7 +8,7 @@ Small independently releasable format packages can be developed, tested, install
 
 ## Why three driver forms are distinct
 
-A Linux `.so`, kernel `.ko` and UEFI `.efi` do not share an executable ABI. A successful shared-object test does not prove the kernel module mounts on every kernel or that a firmware driver boots an operating system. Each driver form needs its own isolated compile, runtime qualification, release and installation evidence. The initial native package installs only the `.so`.
+A Linux `.so`, kernel `.ko` and UEFI `.efi` do not share an executable ABI. A successful shared-object test does not prove the kernel module mounts on every kernel or that a firmware driver boots an operating system. Each driver form needs its own isolated compile, runtime qualification, release and installation evidence. Versions 0.1.0 and 0.1.1 installed only the `.so`; the 0.1.2 candidate includes tested `.ko` and `.efi` driver payloads and supplies a native host kernel build path. Do not label the candidate qualified until all gates pass.
 
 ## Failure policy
 
