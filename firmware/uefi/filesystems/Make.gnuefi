@@ -1,0 +1,70 @@
+#
+# filesystems/Make.gnuefi
+# Build control file for the EFI drivers, as built with GNU-EFI
+#
+
+# This program is licensed under the terms of the GNU GPL, version 3,
+# or (at your option) any later version.
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+SRCDIR = .
+
+VPATH = $(SRCDIR)
+HOSTARCH        = $(shell uname -m | sed s,i[3456789]86,ia32,)
+
+LOCAL_GNUEFI_CFLAGS   = -DFSTYPE=$(DRIVERNAME) -I$(SRCDIR) 
+LOCAL_GNUEFI_LDFLAGS  =
+ifeq ($(HOSTARCH),x86_64)
+  LOCAL_GNUEFI_CFLAGS += "-DEFIAPI=__attribute__((ms_abi))" 
+endif
+
+OBJS            = fsw_core.o fsw_efi.o fsw_efi_lib.o fsw_lib.o fsw_$(DRIVERNAME).o
+
+# InfiltratorFS is not a second on-disk parser. Build the pinned portable
+# InfiltratorFS core directly into the EFI driver and adapt its storage API to
+# EFI Disk I/O. The small freestanding runtime replaces libc, which does not
+# exist before the operating system starts.
+ifeq ($(DRIVERNAME),infiltratorfs)
+  INFILFS_VENDOR = infiltratorfs/vendor
+  VPATH = $(SRCDIR):infiltratorfs:$(INFILFS_VENDOR)/src:$(INFILFS_VENDOR)/common/src:$(INFILFS_VENDOR)/lz4
+  LOCAL_GNUEFI_CFLAGS += -I$(INFILFS_VENDOR)/include -I$(INFILFS_VENDOR)/lz4 \
+                         -ffreestanding -fno-builtin -ffunction-sections -fdata-sections \
+                         -fvisibility=hidden \
+                         -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 \
+                         -include infiltratorfs/uefi_libc.h \
+                         -DLZ4_FREESTANDING=1 \
+                         -DLZ4_memcpy=memcpy -DLZ4_memset=memset -DLZ4_memmove=memmove
+  LOCAL_GNUEFI_LDFLAGS += --gc-sections
+  OBJS = fsw_core.o fsw_efi.o fsw_efi_lib.o fsw_lib.o fsw_infiltratorfs.o \
+         uefi_compat.o checksum.o status.o storage.o security.o fs.o volume.o \
+         arithmetic.o core.o lz4.o
+endif
+
+TARGET          = $(DRIVERNAME)_$(FILENAME_CODE).efi
+
+include $(SRCDIR)/../Make.common
+
+all: $(TARGET)
+
+ifeq ($(HOSTARCH),aarch64)
+  # Set symbol for driver
+  SUBSYSTEM_LDFLAG = -defsym=EFI_SUBSYSTEM=0xb
+endif
+
+$(SHLIB_TARGET): $(OBJS)
+	$(LD) $(GNUEFI_LDFLAGS) $(LOCAL_GNUEFI_LDFLAGS) $(SUBSYSTEM_LDFLAG) $(OBJS) -o $@ $(LOCAL_LIBS) $(GNUEFI_LIBS)
+
+$(TARGET): $(SHLIB_TARGET)
+	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rodata \
+	           -j .rel -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
+		   -j .reloc --strip-unneeded $(FORMAT_DRIVER) $< $@
+ifneq ($(OMIT_SBAT), 1)
+		   $(OBJCOPY) --add-section .sbat=$(SRCDIR)/../$(REFIND_SBAT_CSV) \
+		   --adjust-section-vma .sbat+10000000 $@
+endif
+	chmod a-x $(TARGET)
+	mkdir -p ../drivers_$(FILENAME_CODE)
+	cp $(TARGET) ../drivers_$(FILENAME_CODE)
+
+# EOF

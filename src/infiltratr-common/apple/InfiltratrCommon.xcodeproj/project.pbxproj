@@ -1,0 +1,257 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000011 /* core.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* core.c */; };
+		A10000000000000000000012 /* arithmetic.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* arithmetic.c */; };
+		A10000000000000000000013 /* config.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* config.c */; };
+		A10000000000000000000014 /* timing.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* timing.c */; };
+		A10000000000000000000015 /* format.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* format.c */; };
+		A10000000000000000000016 /* token.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* token.c */; };
+		A10000000000000000000017 /* i18n.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000028 /* i18n.c */; };
+		A10000000000000000000018 /* quantity.c in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* quantity.c */; };
+		A10000000000000000000019 /* escape.c in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002A /* escape.c */; };
+		A1000000000000000000001A /* temporal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* temporal.c */; };
+		A1000000000000000000001B /* temporal_clock.c in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002C /* temporal_clock.c */; };
+		A1000000000000000000001C /* graphics.c in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* graphics.c */; };
+		A1000000000000000000001D /* design.c in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002E /* design.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000021 /* core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = core.c; path = "../src/core.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000022 /* arithmetic.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = arithmetic.c; path = "../src/arithmetic.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000023 /* config.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = config.c; path = "../src/config.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000024 /* timing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = timing.c; path = "../src/timing.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000025 /* format.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = format.c; path = "../src/format.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000026 /* libInfiltratrCommonPortable.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libInfiltratrCommonPortable.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000027 /* token.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = token.c; path = "../src/token.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000028 /* i18n.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = i18n.c; path = "../src/i18n.c"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000029 /* quantity.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = quantity.c; path = "../src/quantity.c"; sourceTree = SOURCE_ROOT; };
+		A1000000000000000000002A /* escape.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = escape.c; path = "../src/escape.c"; sourceTree = SOURCE_ROOT; };
+		A1000000000000000000002B /* temporal.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = temporal.c; path = "../src/temporal.c"; sourceTree = SOURCE_ROOT; };
+		A1000000000000000000002C /* temporal_clock.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = temporal_clock.c; path = "../src/temporal_clock.c"; sourceTree = SOURCE_ROOT; };
+		A1000000000000000000002D /* graphics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = graphics.c; path = "../src/graphics.c"; sourceTree = SOURCE_ROOT; };
+		A1000000000000000000002E /* design.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = design.c; path = "../src/design.c"; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000041 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000042 /* Portable Sources */,
+				A10000000000000000000043 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000042 /* Portable Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000021 /* core.c */,
+				A10000000000000000000022 /* arithmetic.c */,
+				A10000000000000000000023 /* config.c */,
+				A10000000000000000000028 /* i18n.c */,
+				A10000000000000000000027 /* token.c */,
+				A10000000000000000000024 /* timing.c */,
+				A10000000000000000000025 /* format.c */,
+				A10000000000000000000029 /* quantity.c */,
+				A1000000000000000000002A /* escape.c */,
+				A1000000000000000000002B /* temporal.c */,
+				A1000000000000000000002C /* temporal_clock.c */,
+				A1000000000000000000002D /* graphics.c */,
+				A1000000000000000000002E /* design.c */,
+			);
+			name = "Portable Sources";
+			sourceTree = "<group>";
+		};
+		A10000000000000000000043 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000026 /* libInfiltratrCommonPortable.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000001 /* InfiltratrCommonPortable */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000061 /* Build configuration list for PBXNativeTarget "InfiltratrCommonPortable" */;
+			buildPhases = (
+				A10000000000000000000051 /* Sources */,
+				A10000000000000000000031 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InfiltratrCommonPortable;
+			productName = InfiltratrCommonPortable;
+			productReference = A10000000000000000000026 /* libInfiltratrCommonPortable.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A10000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A10000000000000000000062 /* Build configuration list for PBXProject "InfiltratrCommon" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000041;
+			productRefGroup = A10000000000000000000043 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000001 /* InfiltratrCommonPortable */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000051 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000011 /* core.c in Sources */,
+				A10000000000000000000012 /* arithmetic.c in Sources */,
+				A10000000000000000000013 /* config.c in Sources */,
+				A10000000000000000000017 /* i18n.c in Sources */,
+				A10000000000000000000016 /* token.c in Sources */,
+				A10000000000000000000014 /* timing.c in Sources */,
+				A10000000000000000000015 /* format.c in Sources */,
+				A10000000000000000000018 /* quantity.c in Sources */,
+				A10000000000000000000019 /* escape.c in Sources */,
+				A1000000000000000000001A /* temporal.c in Sources */,
+				A1000000000000000000001B /* temporal_clock.c in Sources */,
+				A1000000000000000000001C /* graphics.c in Sources */,
+				A1000000000000000000001D /* design.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000000000000000000071 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../include";
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					-Wall,
+					-Wextra,
+					-Wpedantic,
+					-Wshadow,
+					"-Wformat=2",
+					-Wstrict-prototypes,
+					-Wmissing-prototypes,
+					-Werror,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+			};
+			name = Debug;
+		};
+		A10000000000000000000072 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../include";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					-Wall,
+					-Wextra,
+					-Wpedantic,
+					-Wshadow,
+					"-Wformat=2",
+					-Wstrict-prototypes,
+					-Wmissing-prototypes,
+					-Werror,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+			};
+			name = Release;
+		};
+		A10000000000000000000073 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+			};
+			name = Debug;
+		};
+		A10000000000000000000074 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000061 /* Build configuration list for PBXNativeTarget "InfiltratrCommonPortable" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000071 /* Debug */,
+				A10000000000000000000072 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000062 /* Build configuration list for PBXProject "InfiltratrCommon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000073 /* Debug */,
+				A10000000000000000000074 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000000000000000000002 /* Project object */;
+}

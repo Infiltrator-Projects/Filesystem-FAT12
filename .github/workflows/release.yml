@@ -1,0 +1,80 @@
+name: Qualify and publish independent FAT12 module
+on:
+  push:
+    branches: [main, migration/full-source-fat12-20261028]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: filesystem-fat12-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and inspection prerequisites
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils python3 dpkg-dev
+      - name: Compile and exercise exactly one shared object
+        run: make check
+      - name: Build the DEB and native source installer
+        run: make release
+      - name: Validate release bytes and native installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 2
+          dpkg-deb --info dist/*.deb
+          dpkg-deb --contents dist/*.deb
+          bash dist/*.run --help
+          sudo bash dist/*.run --profile aggressive --system-package-mode
+          version=$(cat VERSION)
+          test "$(dpkg-query -W -f='${Version}' infiltrator-filesystem-fat12)" = "${version}+native1"
+          python3 standalone/build.py --profile portable --output build/FAT12.so --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          lib = Path("/System/Filesystems/FAT12.so")
+          info = Path("/System/Resources/Documentation/Filesystem-FAT12/BUILD-INFO").read_text()
+          assert "Profile: aggressive\n" in info
+          assert "-O3 -march=native -mtune=native -flto=auto" in info
+          assert f"SHA256: {hashlib.sha256(lib.read_bytes()).hexdigest()}\n" in info
+          assert not Path("/System/Filesystems/FAT16.so").exists()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fat12-qualified-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    needs: qualify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: fat12-qualified-${{ github.sha }}
+          path: dist
+      - name: Publish exact qualified release once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
+          version=$(cat VERSION)
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Public release $tag exists; refusing mutation." >&2
+            exit 1
+          fi
+          gh release create "$tag" dist/*.deb dist/*.run \
+            --target "$GITHUB_SHA" --title "Filesystem FAT12 ${version}" \
+            --notes "Independent FAT12.so shared object. GitHub generates the source ZIP and tar.gz from this exact tag. Kernel and EFI drivers are not included."

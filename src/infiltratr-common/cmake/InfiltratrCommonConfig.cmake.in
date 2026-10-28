@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/InfiltratrCommonTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/InfiltratrTypographyAssets.cmake")
+
+check_required_components(InfiltratrCommon)

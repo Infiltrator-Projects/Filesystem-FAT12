@@ -1,0 +1,264 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "action_policy.hpp"
+#include "catalog.hpp"
+#include "installer.hpp"
+#include "process_runner.hpp"
+
+#include <iostream>
+#include <string>
+
+namespace {
+
+int fail(const char* message)
+{
+    std::cerr << "action_policy_test: " << message << '\n';
+    return 1;
+}
+
+const filesystems::FilesystemDescriptor* find_entry(
+    const std::string_view id)
+{
+    for (const auto& entry : filesystems::catalog()) {
+        if (entry.id == id) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
+int main()
+{
+    using namespace filesystems;
+
+    const CommandResult exit_status = run_command({"sh", "-c", "exit 42"});
+    if (!exit_status.spawned || exit_status.exit_status != 42 ||
+        exit_status.succeeded()) {
+        return fail("child process exit status was not preserved exactly");
+    }
+
+    if (!package_is_catalogued("util-linux") ||
+        package_is_catalogued("definitely-not-catalogued")) {
+        return fail("package allowlist is not deny-by-default");
+    }
+
+    if (!module_is_catalogued("ofs") ||
+        !module_is_catalogued("ffs") ||
+        module_is_catalogued("affs") ||
+        module_is_catalogued("definitely-not-catalogued")) {
+        return fail("module allowlist is not deny-by-default");
+    }
+
+    const RemovalPlan empty_plan = plan_package_removal({});
+    if (empty_plan.allowed) {
+        return fail("empty package removal was allowed");
+    }
+
+    const RemovalPlan unknown_plan =
+        plan_package_removal({"definitely-not-catalogued"});
+    if (unknown_plan.allowed) {
+        return fail("unknown package removal was allowed");
+    }
+
+    if (!removal_plan_matches_approval(
+            {"package-a", "package-b"}, {"package-b", "package-a"}) ||
+        removal_plan_matches_approval(
+            {"package-a", "package-b"}, {"package-a", "package-c"}) ||
+        removal_plan_matches_approval(
+            {"package-a"}, {"package-a", "package-a"})) {
+        return fail("removal approval is not bound to the exact package set");
+    }
+
+    bool install_callback = false;
+    bool install_success = true;
+    install_packages_async(
+        {"definitely-not-catalogued"},
+        [&install_callback, &install_success](
+            const bool success, const std::string&) {
+            install_callback = true;
+            install_success = success;
+        });
+    if (!install_callback || install_success) {
+        return fail("invalid install was not denied synchronously");
+    }
+
+    bool module_callback = false;
+    bool module_success = true;
+    load_module_async(
+        "definitely-not-catalogued",
+        [&module_callback, &module_success](
+            const bool success, const std::string&) {
+            module_callback = true;
+            module_success = success;
+        });
+    if (!module_callback || module_success) {
+        return fail("invalid module action was not denied synchronously");
+    }
+
+    bool native_callback = false;
+    bool native_success = true;
+    install_native_module_async(
+        "not-managed",
+        "not-managed",
+        [&native_callback, &native_success](
+            const bool success, const std::string&) {
+            native_callback = true;
+            native_success = success;
+        });
+    if (!native_callback || native_success) {
+        return fail("unmanaged native module action was not denied synchronously");
+    }
+
+    const auto hfs_users = catalogue_entries_using_package("hfsprogs");
+    if (hfs_users.size() != 2U) {
+        return fail("shared package impact mapping is incorrect");
+    }
+
+    const FilesystemDescriptor* ofs = find_entry("ofs");
+    if (!ofs || !ofs->project_native_linux || ofs->modules.size() != 1U ||
+        ofs->modules.front() != "ofs") {
+        return fail("OFS Linux kernel driver generation must remain available");
+    }
+    ProbeResult ofs_missing;
+    ofs_missing.state = SupportState::Installable;
+    if (module_action_policy(*ofs, ofs_missing).action !=
+        ModuleActionKind::InstallDropIn ||
+        module_action_policy(*ofs, ofs_missing).button.label != "Install OFS" ||
+        package_action_policy(*ofs, ofs_missing).button.visible) {
+        return fail("Install OFS must compile only OFS.so");
+    }
+    ProbeResult ofs_installed;
+    ofs_installed.state = SupportState::Ready;
+    if (module_action_policy(*ofs, ofs_installed).action !=
+        ModuleActionKind::RemoveDropIn ||
+        module_action_policy(*ofs, ofs_installed).button.label != "Remove OFS") {
+        return fail("Remove OFS must remove only OFS.so");
+    }
+
+    const FilesystemDescriptor* fat16 = find_entry("fat16");
+    if (fat16 == nullptr || fat16->provider != SupportProvider::DropIn ||
+        !fat16->packages.empty() || !fat16->modules.empty() ||
+        package_is_catalogued("dosfstools")) {
+        return fail("FAT16 must have independent .so selection without APT");
+    }
+    ProbeResult fat16_missing;
+    fat16_missing.state = SupportState::Installable;
+    const auto fat16_install = module_action_policy(*fat16, fat16_missing);
+    if (fat16_install.action != ModuleActionKind::InstallDropIn ||
+        fat16_install.button.label != "Install FAT16" ||
+        package_action_policy(*fat16, fat16_missing).button.visible) {
+        return fail("FAT16 installer routes to the wrong action");
+    }
+    ProbeResult fat16_present;
+    fat16_present.state = SupportState::Ready;
+    const auto fat16_remove = module_action_policy(*fat16, fat16_present);
+    if (fat16_remove.action != ModuleActionKind::RemoveDropIn ||
+        fat16_remove.button.label != "Remove FAT16") {
+        return fail("FAT16 remove must target one .so only");
+    }
+
+    const FilesystemDescriptor* ext3 = find_entry("ext3");
+    const FilesystemDescriptor* apfs = find_entry("apfs");
+    const FilesystemDescriptor* hfs = find_entry("hfs");
+    if (ext3 == nullptr || apfs == nullptr || hfs == nullptr) {
+        return fail("policy fixtures are missing from the catalogue");
+    }
+
+    ProbeResult native_missing;
+    native_missing.module_name = "ext3";
+    native_missing.kernel_state = KernelState::Missing;
+    const ModuleActionPolicy install_native =
+        module_action_policy(*ext3, native_missing);
+    if (install_native.action != ModuleActionKind::InstallNative ||
+        !install_native.button.visible || !install_native.button.enabled ||
+        !install_native.button.primary || install_native.button.destructive ||
+        install_native.button.label != "Install native") {
+        return fail("native install presentation leaked or changed semantics");
+    }
+
+    ProbeResult native_stale = native_missing;
+    native_stale.project_native_installed = true;
+    native_stale.project_native_selected = true;
+    native_stale.kernel_state = KernelState::LoadableLoaded;
+    const ModuleActionPolicy update_native =
+        module_action_policy(*ext3, native_stale);
+    if (update_native.action != ModuleActionKind::InstallNative ||
+        !update_native.button.enabled || !update_native.button.primary ||
+        update_native.button.destructive ||
+        update_native.button.label != "Update native") {
+        return fail("stale native module is not exposed as an update operation");
+    }
+
+    ProbeResult native_installed = native_stale;
+    native_installed.project_native_current = true;
+    const ModuleActionPolicy remove_native =
+        module_action_policy(*ext3, native_installed);
+    if (remove_native.action != ModuleActionKind::RemoveNative ||
+        !remove_native.button.enabled || !remove_native.button.destructive ||
+        remove_native.button.label != "Remove native") {
+        return fail("native remove presentation leaked or changed semantics");
+    }
+
+    ProbeResult hfs_missing;
+    hfs_missing.missing_packages = {"hfsprogs"};
+    const PackageActionPolicy install_userspace =
+        package_action_policy(*hfs, hfs_missing);
+    if (install_userspace.action != PackageActionKind::Install ||
+        !install_userspace.button.enabled || !install_userspace.button.primary ||
+        install_userspace.button.label != "Install userspace") {
+        return fail("userspace install policy is incorrect");
+    }
+
+    ProbeResult apfs_ready;
+    apfs_ready.kernel_state = KernelState::LoadableLoaded;
+    const PackageActionPolicy remove_apfs =
+        package_action_policy(*apfs, apfs_ready);
+    if (remove_apfs.action != PackageActionKind::Remove ||
+        !remove_apfs.button.destructive ||
+        !remove_apfs.removal_requires_module_unload ||
+        remove_apfs.button.label != "Remove support") {
+        return fail("DKMS removal guard is not represented by policy");
+    }
+
+    ProbeResult unavailable = hfs_missing;
+    unavailable.unavailable_packages = {"hfsprogs"};
+    const PackageActionPolicy blocked =
+        package_action_policy(*hfs, unavailable);
+    if (blocked.action != PackageActionKind::None ||
+        blocked.button.enabled || blocked.button.label != "Package unavailable") {
+        return fail("unavailable package policy is incorrect");
+    }
+
+    ProbeResult unreliable;
+    unreliable.reliable = false;
+    unreliable.module_name = "ext3";
+    unreliable.missing_packages = {"hfsprogs"};
+    const PackageActionPolicy unreliable_package =
+        package_action_policy(*hfs, unreliable);
+    const ModuleActionPolicy unreliable_module =
+        module_action_policy(*ext3, unreliable);
+    if (unreliable_package.action != PackageActionKind::None ||
+        !unreliable_package.button.visible || unreliable_package.button.enabled ||
+        unreliable_package.button.label != "Refresh required" ||
+        unreliable_module.action != ModuleActionKind::None ||
+        !unreliable_module.button.visible || unreliable_module.button.enabled ||
+        unreliable_module.button.label != "Refresh required") {
+        return fail("unreliable probes exposed an executable action");
+    }
+
+    const std::string stale_detail =
+        support_detail_text(*ext3, native_stale);
+    if (stale_detail.find("update required") == std::string::npos) {
+        return fail("support detail hides stale native source state");
+    }
+
+    const std::string native_detail =
+        support_detail_text(*ext3, native_installed);
+    if (native_detail.find("Infiltrator native") == std::string::npos ||
+        native_detail.find("Kernel module loaded") == std::string::npos) {
+        return fail("support detail policy lost native state");
+    }
+
+    return 0;
+}

@@ -1,0 +1,431 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+static int compression_alloc_data_exact(struct infs_volume *vol,
+                                        uint32_t wanted,
+                                        uint64_t *physical_out)
+{
+    uint64_t physical = 0;
+    uint64_t got = 0;
+    infs_status status;
+
+    if (!wanted || !physical_out)
+        return INFS_STATUS_INVALID_ARGUMENT;
+    status = alloc_data_run_uninitialized(vol, wanted, &physical, &got);
+    if (status != INFS_STATUS_OK)
+        return status;
+    if (got != wanted) {
+        free_run(vol, physical, got);
+        if (vol->tx_error != INFS_STATUS_OK)
+            return vol->tx_error;
+        return INFS_STATUS_NO_SPACE;
+    }
+    *physical_out = physical;
+    return INFS_STATUS_OK;
+}
+
+static int file_extent_lookup(struct infs_volume *vol,
+                              uint8_t object[INFS_BLOCK_SIZE],
+                              struct infs_file_payload_disk *file,
+                              struct infs_extent_disk *classic,
+                              uint64_t logical,
+                              struct infs_extent_disk *out)
+{
+    if (!out)
+        return INFS_STATUS_INVALID_ARGUMENT;
+    if (file_has_paged_extents(object)) {
+        uint8_t page[INFS_BLOCK_SIZE];
+        struct infs_extent_disk *extents = NULL;
+        uint32_t count = 0;
+        infs_status status = paged_extent_find_page(
+            vol, object, file, logical, NULL, page, &extents, &count);
+        if (status != INFS_STATUS_OK)
+            return status;
+        for (uint32_t i = 0; i < count; ++i) {
+            uint64_t start = infs_le64_to_cpu(extents[i].logical_block);
+            uint64_t end = 0;
+            if (!infiltratr_u64_add_checked(
+                    start,
+                    (uint64_t)infs_le32_to_cpu(extents[i].block_count),
+                    &end))
+                return INFS_STATUS_CORRUPT;
+            if (logical >= start && logical < end) {
+                *out = extents[i];
+                return INFS_STATUS_OK;
+            }
+        }
+        return INFS_STATUS_CORRUPT;
+    }
+    uint32_t count = infs_le32_to_cpu(file->extent_count);
+    for (uint32_t i = 0; i < count; ++i) {
+        uint64_t start = infs_le64_to_cpu(classic[i].logical_block);
+        uint64_t end = 0;
+        if (!infiltratr_u64_add_checked(
+                start,
+                (uint64_t)infs_le32_to_cpu(classic[i].block_count),
+                &end))
+            return INFS_STATUS_CORRUPT;
+        if (logical >= start && logical < end) {
+            *out = classic[i];
+            return INFS_STATUS_OK;
+        }
+    }
+    return INFS_STATUS_CORRUPT;
+}
+
+static int file_decompress_extent(
+    struct infs_volume *vol, const struct infs_file_payload_disk *file,
+    const uint8_t owner_id[16], const struct infs_extent_disk *extent,
+    uint8_t **data_out, size_t *bytes_out)
+{
+    uint32_t logical_blocks = infs_le32_to_cpu(extent->block_count);
+    uint32_t flags = infs_le32_to_cpu(extent->flags);
+    uint32_t stored = extent_stored_bytes(flags);
+    uint64_t physical = infs_le64_to_cpu(extent->physical_block);
+    uint64_t physical_blocks = extent_physical_blocks(logical_blocks, flags);
+    size_t logical_bytes = 0;
+    size_t stored_span = 0;
+    uint64_t storage_offset = 0;
+    uint8_t *compressed = NULL;
+    uint8_t *plain = NULL;
+    int decoded;
+    infs_status status;
+
+    if (!extent_is_compressed(flags) || !stored || !physical_blocks ||
+        logical_blocks > INFS_COMPRESSION_CLUSTER_BLOCKS ||
+        !infiltratr_size_multiply_checked(
+            (size_t)logical_blocks, (size_t)INFS_BLOCK_SIZE,
+            &logical_bytes) ||
+        physical_blocks > (uint64_t)SIZE_MAX ||
+        !infiltratr_size_multiply_checked(
+            (size_t)physical_blocks, (size_t)INFS_BLOCK_SIZE,
+            &stored_span) ||
+        !infiltratr_u64_multiply_checked(
+            physical, (uint64_t)INFS_BLOCK_SIZE, &storage_offset) ||
+        stored > stored_span)
+        return INFS_STATUS_CORRUPT;
+    compressed = malloc(stored_span);
+    plain = malloc(logical_bytes);
+    if (!compressed || !plain) {
+        free(compressed);
+        free(plain);
+        return INFS_STATUS_NO_MEMORY;
+    }
+    struct infs_storage_io_policy policy;
+    file_storage_policy(file, owner_id, &policy);
+    status = infs_storage_read_policy(
+        &vol->storage, storage_offset, compressed, stored_span, &policy);
+    if (status != INFS_STATUS_OK) {
+        free(compressed);
+        free(plain);
+        return status;
+    }
+    if (extent_codec(flags) == INFS_COMPRESSION_LZ4) {
+        decoded = LZ4_decompress_safe(
+            (const char *)compressed, (char *)plain,
+            (int)stored, (int)logical_bytes);
+    } else if (extent_codec(flags) == INFS_COMPRESSION_IAC1) {
+        decoded = (int)infs_iac1_decompress(
+            compressed, stored, plain, logical_bytes);
+    } else {
+        decoded = 0;
+    }
+    free(compressed);
+    if (decoded != (int)logical_bytes) {
+        free(plain);
+        return INFS_STATUS_CORRUPT;
+    }
+    *data_out = plain;
+    if (bytes_out)
+        *bytes_out = logical_bytes;
+    return INFS_STATUS_OK;
+}
+
+static int file_read_logical_block(struct infs_volume *vol,
+                                   uint8_t object[INFS_BLOCK_SIZE],
+                                   struct infs_file_payload_disk *file,
+                                   struct infs_extent_disk *classic,
+                                   const uint8_t owner_id[16],
+                                   uint64_t logical,
+                                   uint8_t data[INFS_BLOCK_SIZE])
+{
+    struct infs_extent_disk extent;
+    infs_status status = file_extent_lookup(
+        vol, object, file, classic, logical, &extent);
+    if (status != INFS_STATUS_OK)
+        return status;
+    uint64_t start = infs_le64_to_cpu(extent.logical_block);
+    uint64_t physical = infs_le64_to_cpu(extent.physical_block);
+    uint32_t flags = infs_le32_to_cpu(extent.flags);
+
+    if (extent_kind(flags) == INFS_EXTENT_HOLE) {
+        memset(data, 0, INFS_BLOCK_SIZE);
+        return INFS_STATUS_OK;
+    }
+    if (extent_is_compressed(flags)) {
+        uint8_t *plain = NULL;
+        size_t bytes = 0;
+        status = file_decompress_extent(
+            vol, file, owner_id, &extent, &plain, &bytes);
+        if (status != INFS_STATUS_OK)
+            return status;
+        uint64_t delta = logical - start;
+        uint64_t block_end = 0;
+        uint64_t byte_end = 0;
+        if (delta >= infs_le32_to_cpu(extent.block_count) ||
+            !infiltratr_u64_add_checked(delta, UINT64_C(1), &block_end) ||
+            !infiltratr_u64_multiply_checked(
+                block_end, (uint64_t)INFS_BLOCK_SIZE, &byte_end) ||
+            byte_end > (uint64_t)bytes) {
+            free(plain);
+            return INFS_STATUS_CORRUPT;
+        }
+        memcpy(data, plain + (size_t)(byte_end - INFS_BLOCK_SIZE),
+               INFS_BLOCK_SIZE);
+        free(plain);
+    } else {
+        uint64_t physical_block = 0;
+        if (!infiltratr_u64_add_checked(
+                physical, logical - start, &physical_block))
+            return INFS_STATUS_CORRUPT;
+        status = read_data_block(
+            vol, physical_block, file, owner_id, data);
+        if (status != INFS_STATUS_OK)
+            return status;
+    }
+    return data_block_verify(vol, file, owner_id, logical, data);
+}
+
+static int file_materialize_compressed_extent(
+    struct infs_volume *vol, uint8_t object[INFS_BLOCK_SIZE],
+    struct infs_file_payload_disk *file, struct infs_extent_disk *classic,
+    const struct infs_extent_disk *extent)
+{
+    uint32_t flags = infs_le32_to_cpu(extent->flags);
+    uint32_t blocks = infs_le32_to_cpu(extent->block_count);
+    uint64_t logical = infs_le64_to_cpu(extent->logical_block);
+    uint64_t replacement = 0;
+    uint8_t *plain = NULL;
+    size_t plain_bytes = 0;
+    infs_status status;
+
+    (void)classic;
+    if (!extent_is_compressed(flags))
+        return INFS_STATUS_OK;
+    status = file_decompress_extent(
+        vol, file,
+        ((const struct infs_object_header_disk *)object)->object_id,
+        extent, &plain, &plain_bytes);
+    if (status != INFS_STATUS_OK)
+        return status;
+    status = compression_alloc_data_exact(vol, blocks, &replacement);
+    if (status != INFS_STATUS_OK) {
+        free(plain);
+        return status;
+    }
+    uint64_t storage_offset = 0;
+    if (!infiltratr_u64_multiply_checked(
+            replacement, (uint64_t)INFS_BLOCK_SIZE, &storage_offset)) {
+        free(plain);
+        return INFS_STATUS_OVERFLOW;
+    }
+    struct infs_storage_io_policy policy;
+    file_storage_policy(
+        file, ((const struct infs_object_header_disk *)object)->object_id,
+        &policy);
+    status = infs_storage_write_policy(
+        &vol->storage, storage_offset, plain, plain_bytes, &policy);
+    free(plain);
+    if (status != INFS_STATUS_OK)
+        return status;
+    status = file_replace_range(vol, object, logical, blocks,
+                                replacement, INFS_EXTENT_NORMAL);
+    if (status != INFS_STATUS_OK)
+        return status;
+    /*
+     * file_replace_range mutates the in-memory object payload. Refresh the
+     * object CRC before using the normal validator to reacquire classic/paged
+     * extent pointers; otherwise a correct CoW materialization is rejected as
+     * corrupt solely because its old object checksum is stale.
+     */
+    status = infs_object_finalize(object);
+    if (status != INFS_STATUS_OK)
+        return status;
+    return file_validate_volume(vol, object, &file, &classic);
+}
+
+static int file_materialize_compressed_at(
+    struct infs_volume *vol, uint8_t object[INFS_BLOCK_SIZE],
+    struct infs_file_payload_disk **file_io,
+    struct infs_extent_disk **classic_io, uint64_t logical)
+{
+    struct infs_extent_disk extent;
+    infs_status status = file_extent_lookup(
+        vol, object, *file_io, *classic_io, logical, &extent);
+    if (status != INFS_STATUS_OK)
+        return status;
+    if (!extent_is_compressed(infs_le32_to_cpu(extent.flags)))
+        return INFS_STATUS_OK;
+    status = file_materialize_compressed_extent(
+        vol, object, *file_io, *classic_io, &extent);
+    if (status != INFS_STATUS_OK)
+        return status;
+    return file_validate_volume(vol, object, file_io, classic_io);
+}
+
+static int file_materialize_compressed_range(
+    struct infs_volume *vol, uint8_t object[INFS_BLOCK_SIZE],
+    struct infs_file_payload_disk **file_io,
+    struct infs_extent_disk **classic_io,
+    uint64_t logical_start, uint64_t logical_count)
+{
+    uint64_t end = 0;
+    uint64_t cursor = logical_start;
+    if (!infiltratr_u64_add_checked(logical_start, logical_count, &end))
+        return INFS_STATUS_OVERFLOW;
+    while (cursor < end) {
+        struct infs_extent_disk extent;
+        infs_status status = file_extent_lookup(
+            vol, object, *file_io, *classic_io, cursor, &extent);
+        if (status != INFS_STATUS_OK)
+            return status;
+        uint64_t start = infs_le64_to_cpu(extent.logical_block);
+        uint64_t extent_end = 0;
+        if (!infiltratr_u64_add_checked(
+                start, (uint64_t)infs_le32_to_cpu(extent.block_count),
+                &extent_end))
+            return INFS_STATUS_CORRUPT;
+        if (extent_is_compressed(infs_le32_to_cpu(extent.flags))) {
+            status = file_materialize_compressed_extent(
+                vol, object, *file_io, *classic_io, &extent);
+            if (status != INFS_STATUS_OK)
+                return status;
+            status = file_validate_volume(vol, object, file_io, classic_io);
+            if (status != INFS_STATUS_OK)
+                return status;
+        }
+        if (extent_end <= cursor)
+            return INFS_STATUS_CORRUPT;
+        cursor = extent_end < end ? extent_end : end;
+    }
+    return INFS_STATUS_OK;
+}
+
+static int file_store_extent_payload(
+    struct infs_volume *vol, const struct infs_file_payload_disk *file,
+    const uint8_t owner_id[16],
+    const uint8_t *plain, uint32_t logical_blocks,
+    uint64_t *physical_out, uint32_t *flags_out)
+{
+    size_t plain_bytes = 0;
+    size_t bound = 0;
+    uint8_t *compressed = NULL;
+    struct infs_iac1_scratch *scratch = NULL;
+    uint8_t predictor_mode = INFS_IAC1_MODE_IDENTITY;
+    size_t compressed_bytes = 0;
+    uint8_t *stored = NULL;
+    uint32_t stored_blocks = 0;
+    uint64_t physical = 0;
+    infs_status status;
+
+    if (!logical_blocks || logical_blocks > INFS_COMPRESSION_CLUSTER_BLOCKS)
+        return INFS_STATUS_INVALID_ARGUMENT;
+    if (!infiltratr_size_multiply_checked(
+            (size_t)logical_blocks, (size_t)INFS_BLOCK_SIZE,
+            &plain_bytes))
+        return INFS_STATUS_OVERFLOW;
+
+    if ((infs_le64_to_cpu(vol->sb.incompat_flags) &
+         INFS_INCOMPAT_COMPRESSED_EXTENTS) != 0 &&
+        logical_blocks >= 2u &&
+        infs_iac1_should_attempt(plain, plain_bytes)) {
+        bound = infs_iac1_bound(plain_bytes);
+        predictor_mode = infs_iac1_predictor_mode(plain, plain_bytes);
+        compressed = malloc(bound);
+        scratch = malloc(sizeof(*scratch));
+        if (!compressed || !scratch) {
+            free(scratch);
+            free(compressed);
+            return INFS_STATUS_NO_MEMORY;
+        }
+        size_t savings_target = 0;
+        if (!infiltratr_size_multiply_checked(
+                (size_t)(logical_blocks - 1u), (size_t)INFS_BLOCK_SIZE,
+                &savings_target)) {
+            free(scratch);
+            free(compressed);
+            return INFS_STATUS_OVERFLOW;
+        }
+        compressed_bytes = infs_iac1_compress_selected(
+            plain, plain_bytes, compressed, bound, scratch,
+            predictor_mode, savings_target);
+        if (compressed_bytes &&
+            compressed_bytes <= INFS_EXTENT_STORED_BYTES_MAX) {
+            stored_blocks = (uint32_t)(
+                compressed_bytes / INFS_BLOCK_SIZE +
+                ((compressed_bytes % INFS_BLOCK_SIZE) != 0));
+            if (stored_blocks >= logical_blocks)
+                stored_blocks = 0;
+        }
+    }
+
+    if (stored_blocks) {
+        size_t span = 0;
+        if (!infiltratr_size_multiply_checked(
+                (size_t)stored_blocks, (size_t)INFS_BLOCK_SIZE, &span)) {
+            free(scratch);
+            free(compressed);
+            return INFS_STATUS_OVERFLOW;
+        }
+        stored = calloc(1u, span);
+        if (!stored) {
+            free(scratch);
+            free(compressed);
+            return INFS_STATUS_NO_MEMORY;
+        }
+        memcpy(stored, compressed, compressed_bytes);
+        status = compression_alloc_data_exact(
+            vol, stored_blocks, &physical);
+        uint64_t storage_offset = 0;
+        if (status == INFS_STATUS_OK &&
+            !infiltratr_u64_multiply_checked(
+                physical, (uint64_t)INFS_BLOCK_SIZE, &storage_offset))
+            status = INFS_STATUS_OVERFLOW;
+        if (status == INFS_STATUS_OK)
+            {
+                struct infs_storage_io_policy policy;
+                file_storage_policy(file, owner_id, &policy);
+                status = infs_storage_write_policy(
+                    &vol->storage, storage_offset, stored, span, &policy);
+            }
+        free(stored);
+        free(scratch);
+        free(compressed);
+        if (status != INFS_STATUS_OK)
+            return status;
+        *physical_out = physical;
+        *flags_out = extent_compressed_flags(
+            INFS_COMPRESSION_IAC1, (uint32_t)compressed_bytes);
+        return INFS_STATUS_OK;
+    }
+
+    free(scratch);
+    free(compressed);
+    status = compression_alloc_data_exact(vol, logical_blocks, &physical);
+    if (status != INFS_STATUS_OK)
+        return status;
+    uint64_t storage_offset = 0;
+    if (!infiltratr_u64_multiply_checked(
+            physical, (uint64_t)INFS_BLOCK_SIZE, &storage_offset))
+        return INFS_STATUS_OVERFLOW;
+    {
+        struct infs_storage_io_policy policy;
+        file_storage_policy(file, owner_id, &policy);
+        status = infs_storage_write_policy(
+            &vol->storage, storage_offset, plain, plain_bytes, &policy);
+    }
+    if (status != INFS_STATUS_OK)
+        return status;
+    *physical_out = physical;
+    *flags_out = INFS_EXTENT_NORMAL;
+    return INFS_STATUS_OK;
+}

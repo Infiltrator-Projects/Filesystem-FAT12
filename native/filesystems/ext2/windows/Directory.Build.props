@@ -1,0 +1,24 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<Project>
+  <PropertyGroup>
+    <FilesystemsWdkPackagesDir Condition="'$(FilesystemsWdkPackagesDir)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\build\windows-wdk-packages</FilesystemsWdkPackagesDir>
+    <FilesystemsWdkVersion>10.0.28000.2526</FilesystemsWdkVersion>
+  </PropertyGroup>
+
+  <Import
+    Project="$(FilesystemsWdkPackagesDir)\Microsoft.Windows.WDK.x64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.WDK.x64.props"
+    Condition="'$(Platform)' == 'x64' and Exists('$(FilesystemsWdkPackagesDir)\Microsoft.Windows.WDK.x64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.WDK.x64.props')" />
+  <Import
+    Project="$(FilesystemsWdkPackagesDir)\Microsoft.Windows.WDK.ARM64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.WDK.ARM64.props"
+    Condition="'$(Platform)' == 'ARM64' and Exists('$(FilesystemsWdkPackagesDir)\Microsoft.Windows.WDK.ARM64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.WDK.ARM64.props')" />
+
+  <Import
+    Project="$(FilesystemsWdkPackagesDir)\Microsoft.Windows.SDK.CPP.x64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.SDK.cpp.x64.props"
+    Condition="'$(Platform)' == 'x64' and Exists('$(FilesystemsWdkPackagesDir)\Microsoft.Windows.SDK.CPP.x64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.SDK.cpp.x64.props')" />
+  <Import
+    Project="$(FilesystemsWdkPackagesDir)\Microsoft.Windows.SDK.CPP.arm64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.SDK.cpp.arm64.props"
+    Condition="'$(Platform)' == 'ARM64' and Exists('$(FilesystemsWdkPackagesDir)\Microsoft.Windows.SDK.CPP.arm64.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.SDK.cpp.arm64.props')" />
+  <Import
+    Project="$(FilesystemsWdkPackagesDir)\Microsoft.Windows.SDK.CPP.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.SDK.cpp.props"
+    Condition="Exists('$(FilesystemsWdkPackagesDir)\Microsoft.Windows.SDK.CPP.$(FilesystemsWdkVersion)\build\native\Microsoft.Windows.SDK.cpp.props')" />
+</Project>

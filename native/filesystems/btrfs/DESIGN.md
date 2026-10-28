@@ -1,0 +1,80 @@
+# Btrfs Design and Ownership
+
+> **Working source (23 October 2026).** This filesystem's `linux/` directory contains the actual copied Linux implementation source, preserved with its original attribution and available for direct modification. It is not a replaceable research-only reference tree. The old independently-rewrite-first policy and any old directory-layout/refresh language below are historical, not a restriction on editing this working baseline. Only explicitly qualified drivers appear in `data/native-filesystems.tsv`.
+
+
+## Classification
+
+Btrfs is a conventional local copy-on-write filesystem with checksums,
+snapshots/subvolumes and multi-device capabilities. It belongs in the normal
+canonical-engine architecture.
+
+## Current state
+
+Btrfs is currently **imported-source development state**. The source under
+`linux/` is the pinned upstream Linux implementation and is not
+project-authored Filesystems code.
+
+The reference tree is intentionally preserved with upstream filenames,
+licences, copyright and subsystem boundaries.
+
+## Current directory contract
+
+While Btrfs remains in imported-source development state, the filesystem root contains only
+`DESIGN.md` and `linux/`; the copied Linux tree remains under
+`linux/` with upstream filenames and boundaries intact. The future
+`core/`, `linux/` and `windows/` directories are created only when an
+independent rewrite actually begins. `kernel/` and `userspace/` are not valid
+shortcuts around that promotion boundary.
+
+CI enforces this present-state layout and rejects accidental linkage of the
+reference tree into the production CMake graph.
+
+## Target layout
+
+```text
+native/filesystems/btrfs/
+  DESIGN.md
+  core/                 canonical Btrfs filesystem semantics
+  linux/                thin Linux VFS/module adapter
+  windows/              thin Windows IFS/WDK adapter when implemented
+  linux/      pinned upstream Linux evidence
+```
+
+## Canonical ownership
+
+The future host-neutral core owns Btrfs-defined structures and behaviour:
+superblocks/chunk trees, key and B-tree semantics, extents/backreferences,
+checksums, copy-on-write transactions, subvolumes/snapshots, device/chunk
+mapping, allocation, compression format handling, namespace/metadata rules and
+filesystem-defined recovery/repair invariants.
+
+Linux folios, bios, workqueues, VFS objects, kernel locking and mount/module
+lifetime remain Linux-adapter concerns.
+
+## File-boundary rule
+
+Upstream files such as `ctree.c`, `inode.c`, `extent-tree.c`,
+`tree-log.c`, `volumes.c` and related headers remain reference filenames.
+Project-authored files must be cut around Filesystems ownership and
+portable invariants rather than copied/renamed from Linux.
+
+## Promotion sequence
+
+The rewrite begins with bounded format/feature decoding and read-only tree,
+chunk/device and extent traversal, qualified against independent images and
+malformed-media cases. Mutation, snapshots/subvolumes, multi-device writes and
+repair require separate durability/recovery qualification before they can be
+claimed.
+
+A Linux adapter and any future Windows adapter must consume the same core.
+
+## Failure policy
+
+Unsupported incompatibility features, invalid tree keys/levels, checksum
+failures, contradictory chunk/device maps, out-of-range extents and unsafe
+transaction/log state fail closed.
+
+## Copied implementation provenance
+
+The editable `linux/` source contains original implementation code copied from the pinned Linux v6.12.107 source baseline. Original copyright, licence and attribution remain part of that code. Source refresh is not automatic and must never replace Filesystems modifications. Promotion into a managed native module requires its own host-integration and runtime qualification.

@@ -1,0 +1,33 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+# Filesystems per-filesystem Nemo launcher.
+#
+# The desktop active directory is the committed presentation state. Native
+# deployment policy is owned by the kernel helper and desktop synchronizer; a
+# launcher must not reconstruct filesystem-to-module identity or inspect kernel
+# deployment paths before consuming an already-active presentation plugin.
+system_root=/
+base=${system_root%/}
+original=$base/usr/bin/nemo.filesystems-original
+manifest=$base/usr/lib/filesystems/desktop-filesystems.tsv
+names=
+if [ -r "$manifest" ]; then
+    for filesystem in $(awk -F '\t' '$0 !~ /^#/ && NF == 2 { print $1 }' "$manifest"); do
+        file=$base/usr/lib/filesystems/desktop/active/$filesystem.so
+        if [ -f "$file" ]; then
+            names=${names:+$names:}$file
+        fi
+    done
+fi
+if [ -n "$names" ]; then
+    if [ "${LD_PRELOAD+x}" = x ]; then
+        INFILTRATOR_NEMO_PRELOAD_SET=yes
+    else
+        INFILTRATOR_NEMO_PRELOAD_SET=no
+    fi
+    INFILTRATOR_NEMO_PRELOAD_VALUE=${LD_PRELOAD-}
+    LD_PRELOAD="$names${LD_PRELOAD:+:$LD_PRELOAD}"
+    export INFILTRATOR_NEMO_PRELOAD_SET INFILTRATOR_NEMO_PRELOAD_VALUE LD_PRELOAD
+fi
+exec "$original" "$@"

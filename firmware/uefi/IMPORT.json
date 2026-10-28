@@ -1,0 +1,876 @@
+{
+  "source_repository": "Infiltrator-Projects/Boot",
+  "source_commit": "9043feba1b72e41969dbf26c5a65aedbea0fe0bc",
+  "files": [
+    {
+      "source": "filesystems/AutoGen.c",
+      "path": "filesystems/AutoGen.c",
+      "sha256": "7ce1f2141c847927873c15f77b44b875cf0f9c3061cd86b462fd32a8f2ff4e40"
+    },
+    {
+      "source": "filesystems/AutoGen.h",
+      "path": "filesystems/AutoGen.h",
+      "sha256": "707683f2c0bb7776767bc1a9c797398643ac5374e8c81b43f6b42c93990fc423"
+    },
+    {
+      "source": "filesystems/LICENSE.txt",
+      "path": "filesystems/LICENSE.txt",
+      "sha256": "cb7a5118ace1c71f0b5967a0f5d08ac8539aedf760d4e689e8ddd77467ba8f97"
+    },
+    {
+      "source": "filesystems/LICENSE_GPL.txt",
+      "path": "filesystems/LICENSE_GPL.txt",
+      "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
+    },
+    {
+      "source": "filesystems/Make.gnuefi",
+      "path": "filesystems/Make.gnuefi",
+      "sha256": "a293c3e8b9f005cfb66cc89636f9394b0913b067f745cc6d61a2c324a3453a74"
+    },
+    {
+      "source": "filesystems/Make.tiano",
+      "path": "filesystems/Make.tiano",
+      "sha256": "48340dc2f843c31835ed47b1e0edca0aec6882a276e05de22c922659c1119455"
+    },
+    {
+      "source": "filesystems/Makefile",
+      "path": "filesystems/Makefile",
+      "sha256": "232d413d21d705ac4f3e037a0ecfd4da3a9955f0f2bd6683fef9a968945ab7a5"
+    },
+    {
+      "source": "filesystems/btrfs.inf",
+      "path": "filesystems/btrfs.inf",
+      "sha256": "df587fa7c39bcd142bde79b6f0dfb9f3efe29fe9680bfa0918304bff4aee2e75"
+    },
+    {
+      "source": "filesystems/crc32c.c",
+      "path": "filesystems/crc32c.c",
+      "sha256": "e36433f78c2d2e1498525ba82b33f96f2a17ad63a6d986051a39cedbcc98f96a"
+    },
+    {
+      "source": "filesystems/design.dox",
+      "path": "filesystems/design.dox",
+      "sha256": "488c2d5afb4b0276131da05b332d54460f5891e5c05849f8677a407660f87b99"
+    },
+    {
+      "source": "filesystems/edk2/ComponentName.h",
+      "path": "filesystems/edk2/ComponentName.h",
+      "sha256": "8a4f00f41d8512b6498ebd85dc3f9b2782ff60ad909d486e65e4e1a02da69d9d"
+    },
+    {
+      "source": "filesystems/edk2/DriverBinding.h",
+      "path": "filesystems/edk2/DriverBinding.h",
+      "sha256": "c55af4ef38590d4c4476f22184716c8b376e6dfede7e6e59f9739b3dc0b3cb5c"
+    },
+    {
+      "source": "filesystems/ext2.inf",
+      "path": "filesystems/ext2.inf",
+      "sha256": "eaf17ebcab7fe8e4d08079764337846b721332d39b9c6a2519092e739449f5d4"
+    },
+    {
+      "source": "filesystems/ext4.inf",
+      "path": "filesystems/ext4.inf",
+      "sha256": "744c7312c7974756825e7055b4697a3dbfd40e7e7cf1ab8c8de217346a419561"
+    },
+    {
+      "source": "filesystems/fsw_base.h",
+      "path": "filesystems/fsw_base.h",
+      "sha256": "316fe8220e68ee983933b4f223cfabf7d95846274e2162f3582afd1947741d40"
+    },
+    {
+      "source": "filesystems/fsw_btrfs.c",
+      "path": "filesystems/fsw_btrfs.c",
+      "sha256": "8e8c9ee9636cecd70c4c0b4acaea9e1fd15a710d2dffd8fb88e23ec3e5c6aa5e"
+    },
+    {
+      "source": "filesystems/fsw_btrfs_zstd.h",
+      "path": "filesystems/fsw_btrfs_zstd.h",
+      "sha256": "b1a8922c66044e63b82c729144d10a204425a0ce16f715ab433169d2d7891261"
+    },
+    {
+      "source": "filesystems/fsw_core.c",
+      "path": "filesystems/fsw_core.c",
+      "sha256": "2f97891fa118c9e5f4b4efbf1fffe216aa5ad89d2a7acfc4c4d4129599c0d420"
+    },
+    {
+      "source": "filesystems/fsw_core.h",
+      "path": "filesystems/fsw_core.h",
+      "sha256": "411edb35b4c6b2c35ff8247adcd10fdf0f6ed5856998a296e800fa9d3f3edd7b"
+    },
+    {
+      "source": "filesystems/fsw_efi.c",
+      "path": "filesystems/fsw_efi.c",
+      "sha256": "2ce7c6bbcdc85761e65db0481ddfff1bfe5b66b149d9c50ab13e565e5dc2d8b1"
+    },
+    {
+      "source": "filesystems/fsw_efi.h",
+      "path": "filesystems/fsw_efi.h",
+      "sha256": "f5a2f6d9eb4388223f99b3a080b279f92ac25df25413d4222bb52e6bffd40efc"
+    },
+    {
+      "source": "filesystems/fsw_efi_base.h",
+      "path": "filesystems/fsw_efi_base.h",
+      "sha256": "34085f482e14534288419694df5157d63c5b244db485b5aa44b426d1726e4788"
+    },
+    {
+      "source": "filesystems/fsw_efi_edk2_base.h",
+      "path": "filesystems/fsw_efi_edk2_base.h",
+      "sha256": "20302f62eadd58ae8f35ddd54753806c2235b446a32c49af393c45ac8d41684d"
+    },
+    {
+      "source": "filesystems/fsw_efi_lib.c",
+      "path": "filesystems/fsw_efi_lib.c",
+      "sha256": "7091e0497223d50f0d0328fe376b972b070b8a26607521fff572267b5380b4e8"
+    },
+    {
+      "source": "filesystems/fsw_ext2.c",
+      "path": "filesystems/fsw_ext2.c",
+      "sha256": "03e52cb44c98e28393f491d5b5bf88d57b9fdcc028ba7bbf21b5402121d8ab2a"
+    },
+    {
+      "source": "filesystems/fsw_ext2.h",
+      "path": "filesystems/fsw_ext2.h",
+      "sha256": "add028c577215fbd63414f02bf3ed2941669f95a0962c88dc42ca43f3baa7534"
+    },
+    {
+      "source": "filesystems/fsw_ext2_disk.h",
+      "path": "filesystems/fsw_ext2_disk.h",
+      "sha256": "f5be7b9c0eee59b29744696ed3ee6b84960cfce446fab3c79681f1dc511c912c"
+    },
+    {
+      "source": "filesystems/fsw_ext4.c",
+      "path": "filesystems/fsw_ext4.c",
+      "sha256": "32cb7a3e3a58a3367c2ee62d88e1fc2f2f156a9d527caba98e57a87f1c7e11d1"
+    },
+    {
+      "source": "filesystems/fsw_ext4.h",
+      "path": "filesystems/fsw_ext4.h",
+      "sha256": "3c4a0b0c3aa5b8ec2c18bbf94b92ab1471bc13090154c22a1328aaba38be0ea8"
+    },
+    {
+      "source": "filesystems/fsw_ext4_disk.h",
+      "path": "filesystems/fsw_ext4_disk.h",
+      "sha256": "7b17033766c6ce8a5cd5c8951179be33f44c00105d15131fee29d501df21f1cf"
+    },
+    {
+      "source": "filesystems/fsw_hfs.c",
+      "path": "filesystems/fsw_hfs.c",
+      "sha256": "2d0fb35a4ac2708aa1f715e704dc1fd9c27306f84e40b66d2e34b67e68eead89"
+    },
+    {
+      "source": "filesystems/fsw_hfs.h",
+      "path": "filesystems/fsw_hfs.h",
+      "sha256": "f64c9e87c7265c421ff38af47a020d0f56b0bf68c8ece7e370e1b554c9f32127"
+    },
+    {
+      "source": "filesystems/fsw_infiltratorfs.c",
+      "path": "filesystems/fsw_infiltratorfs.c",
+      "sha256": "c212a1bfecd2777cb7d7f0d119073b26a02dbecfb458f4913be59c1e9eae0d8f"
+    },
+    {
+      "source": "filesystems/fsw_infiltratorfs.h",
+      "path": "filesystems/fsw_infiltratorfs.h",
+      "sha256": "eb566a9a48459ce99b4ecd158874338e63245cbbc404c77b9ba403ddf941a474"
+    },
+    {
+      "source": "filesystems/fsw_iso9660.c",
+      "path": "filesystems/fsw_iso9660.c",
+      "sha256": "a9c655045e138057844056ed650976cdcd1ccd793f5898dd6856460bf2a65817"
+    },
+    {
+      "source": "filesystems/fsw_iso9660.h",
+      "path": "filesystems/fsw_iso9660.h",
+      "sha256": "54f8d69c55ac2316d79c87bcaa7e19459a0b14323b91f8c1fa32f1f6280a1e4c"
+    },
+    {
+      "source": "filesystems/fsw_lib.c",
+      "path": "filesystems/fsw_lib.c",
+      "sha256": "6b4b82cc75b8ea81db91f5e3b23e69cddd9f0dbb042010bc029f3f15ec897c83"
+    },
+    {
+      "source": "filesystems/fsw_ntfs.c",
+      "path": "filesystems/fsw_ntfs.c",
+      "sha256": "9cf08d25193f6204d9dcc91ea9dc85e71b6036a0de46075f23118737d998b567"
+    },
+    {
+      "source": "filesystems/fsw_reiserfs.c",
+      "path": "filesystems/fsw_reiserfs.c",
+      "sha256": "89e1470e1bce85f917a04bcbe4f4664122fbf94197a3c4cda5f6e0ee297c9d47"
+    },
+    {
+      "source": "filesystems/fsw_reiserfs.h",
+      "path": "filesystems/fsw_reiserfs.h",
+      "sha256": "186464c52a4bf8dd0f56c1109a8d40c695e64277d67ec061dfccb4ec7a208ec8"
+    },
+    {
+      "source": "filesystems/fsw_reiserfs_disk.h",
+      "path": "filesystems/fsw_reiserfs_disk.h",
+      "sha256": "c6f0a1aae5585ce3904e8a6fd27740834948e840f6f66ecadcd267835774c6f0"
+    },
+    {
+      "source": "filesystems/fsw_strfunc.h",
+      "path": "filesystems/fsw_strfunc.h",
+      "sha256": "ea24c78b15ef602074ef02c9d3b8f6d4debf41a211a173c515470e759d4694ee"
+    },
+    {
+      "source": "filesystems/gzio.c",
+      "path": "filesystems/gzio.c",
+      "sha256": "44374209b9227cb24f9b005445006d24ce5f9aed0cbcdd1a8782391af917e614"
+    },
+    {
+      "source": "filesystems/hfs.inf",
+      "path": "filesystems/hfs.inf",
+      "sha256": "b2bd7347651f743765ab61b22bb5e6efdfa44b9ca9be8bdffab03d7c7f3253db"
+    },
+    {
+      "source": "filesystems/hfs_format.h",
+      "path": "filesystems/hfs_format.h",
+      "sha256": "c04edfc9ecc737cec40549315831a45d9e7a738613d7f8c76b1584fcf8b1636f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/README.md",
+      "path": "filesystems/infiltratorfs/README.md",
+      "sha256": "b3d833f7e98694979f74b44572e6a2db13c4f1346a244c7d3ac5d27fb9536a9f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/uefi_compat.c",
+      "path": "filesystems/infiltratorfs/uefi_compat.c",
+      "sha256": "d18990915d7d6669698c3ba9e3475fd63cfa252947ec82617637b1e01b12d6a9"
+    },
+    {
+      "source": "filesystems/infiltratorfs/uefi_libc.h",
+      "path": "filesystems/infiltratorfs/uefi_libc.h",
+      "sha256": "c8bae727c7f3c12857451525d3edc73c23b34a3019269dbbaa216efb2d5e0f64"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/LICENSE",
+      "path": "filesystems/infiltratorfs/vendor/LICENSE",
+      "sha256": "ae686627f646b78c5babb0f4bd13965450b1d67c84be45fa9c8c890271de606d"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/UPSTREAM",
+      "path": "filesystems/infiltratorfs/vendor/UPSTREAM",
+      "sha256": "0603d2a9ce42ac23614d0733afc3bce50bfc946ab81883bdf4b688bcb07da09a"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/common/LICENSE",
+      "path": "filesystems/infiltratorfs/vendor/common/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/common/src/arithmetic.c",
+      "path": "filesystems/infiltratorfs/vendor/common/src/arithmetic.c",
+      "sha256": "091424ec46debe738acee7ac700ea2026ea108598807f04ae0282d4cd3d7cab9"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/common/src/ascii_internal.h",
+      "path": "filesystems/infiltratorfs/vendor/common/src/ascii_internal.h",
+      "sha256": "100ab0e1b7ac7d73a81d16f31cc0cef08e278a2a492ee5ba2a5cf97011a9631d"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/common/src/core.c",
+      "path": "filesystems/infiltratorfs/vendor/common/src/core.c",
+      "sha256": "482e4ea026ab865e377de52693194c0faaf916b0b42ae894b16a579e296a8b9a"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/check.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/check.h",
+      "sha256": "6cfe43f141f4913d3adb8ec4d2fdec78de1d9ade21a7fc220a7cc44724035be2"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/checksum.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/checksum.h",
+      "sha256": "1e1363db018c1fdbfc723de8df394b581b8f4a15b392461d34253ba5c0ed2efa"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/endian.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/endian.h",
+      "sha256": "d38f2735b2cbd62b5cf9dc78a77f027adfadbf999418338c168d424973fe0553"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/forensic.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/forensic.h",
+      "sha256": "bca3fdb710034f749608500b1c4376c5bcb7a423f6f4909ae949761ad7f7caf0"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/format.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/format.h",
+      "sha256": "987489b313063a8a72e0791fd00e2de4ad01894d9b95ac8d797acb7fe2904190"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/format_volume.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/format_volume.h",
+      "sha256": "86dc64350b421c87d32448063d6f632548937c67891fb02f471cbe6e811e6945"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/fs.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/fs.h",
+      "sha256": "7bce3211413b5511282be4519ca193bba6a61a5850bd585fd82db899bebbdcb3"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/iac1.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/iac1.h",
+      "sha256": "71ab71f85ed4becc3187bd1bb174947b67ce76859cf0cec7e6005b1218d2ef81"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/posix_io.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/posix_io.h",
+      "sha256": "04b8f462e9f28777968e4782bae0a314b6196152287d4798928fa995e1cd8a47"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/posix_security.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/posix_security.h",
+      "sha256": "d92596db8e19715aeec995f64ea021df68caa5ecd2274bffbd569545dbf4d03c"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/security.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/security.h",
+      "sha256": "bdf957d3296f652df6a88f89b0bcf98930e9a7ffdb848f676fb875967909dfca"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/status.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/status.h",
+      "sha256": "59dcf7805e65744775db0bdac700ebcebc503c5262500fbab07199b74e2dfb71"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/storage.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/storage.h",
+      "sha256": "70a9f79d0b4c8a46e97b651ba2b34de176ae00d0f1c62843b12512ff4a41c93a"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/storage_encrypted.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/storage_encrypted.h",
+      "sha256": "8b7606ca2cedcbeb75b3a783f47785d2b0c3e6208c2a9b63dcd362450f83338f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/storage_mirror.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/storage_mirror.h",
+      "sha256": "ace20d2609fd702b2fbb6d41b3ab9cd75ba966053ab1bb0853a2d59f896b9f21"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/time.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/time.h",
+      "sha256": "f29916e14740fb59c68a0d99d3e505e5d22ccc55b2faad94dbc401c2a68faff3"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/utf8.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/utf8.h",
+      "sha256": "1c0c3232dfa4d2fc5b8bbf20e183cce51cd8f465ad42ae46aa504989eba69017"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/volume.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/volume.h",
+      "sha256": "a9daf9926b4e461715cbd0e313bfc05ef812b1bc2e7a9e7aaae52db5bda89ae4"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/win32_io.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/win32_io.h",
+      "sha256": "2b4f8c726953dd539d2999d93412ebc3e183734f65ffe29844301a41a745fd4c"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/win32_partition_io.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/win32_partition_io.h",
+      "sha256": "52d491280e2f261b646877d5c6db9e2d522f85c40d2e95ca48b7871173f6254d"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infilfs/win32_security.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infilfs/win32_security.h",
+      "sha256": "522dd019fceeef8843d7322a13f613c51da66c10b31f8bbd1b72a03504dfd4a3"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/arithmetic.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/arithmetic.h",
+      "sha256": "2996d929aa5773100d900082c913eca2ed4cbb4e861489a4072e26cecabda755"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/compiler.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/compiler.h",
+      "sha256": "de6a07988f74cf61f9bc7d7e19ed689a2d867272220a0ea3cda75e411e85d45b"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/config.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/config.h",
+      "sha256": "04000be4c547669653fb8658472d49caacc42040fac33d0718afd19d0dafc589"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/core.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/core.h",
+      "sha256": "11c8f979ac700fec9030593b926dc3dec34e8c2760caca984c676f14e0885e04"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/design.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/design.h",
+      "sha256": "d90fcb2432727e2f821f046b5dad09bd0384f2b3e0f28f0b419c78d1a96a5482"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/dynlib.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/dynlib.h",
+      "sha256": "d53ad6b2a9e27ed1463d79fb45698404614c2f533ae8fa428326252b74137ca8"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/endian.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/endian.h",
+      "sha256": "8bc956e52728e26d943279f57064bd321e757e9de084a92c770dece6256c6375"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/escape.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/escape.h",
+      "sha256": "fe20f3f9a8ed7562432dbb51336e5a0715947418feaca51fdc6cee0fb2fb2f7c"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/format.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/format.h",
+      "sha256": "c43c73ac5fc38ee1e5fa3d4b01acace433b6616f2c1e326fc00a6d62c1f94cc3"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/graphics.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/graphics.h",
+      "sha256": "3d69545c5f4687a57f9512da7c739c054263c9501d188de67257732c2d7ce3ef"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/i18n.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/i18n.h",
+      "sha256": "47bbe48fc5c83e4c22c7d82df58dcf1490d68636716fe98c36b0ce271cbc5fc6"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/posix.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/posix.h",
+      "sha256": "537fa5016efd79d778cc05dd892ceb3e219cff5abaeef48f41b337deebd62f4b"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/posix_io.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/posix_io.h",
+      "sha256": "4d2df02d60d4f1d62d5d5b19eaa768f07272b257df84898738b98d57e6aa7831"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/posix_numeric.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/posix_numeric.h",
+      "sha256": "6d871f1ee14d074d2a6366c2ea4fa409c2342870d8a5802cabb20a3053de63f5"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/posix_path.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/posix_path.h",
+      "sha256": "b5131549a0f17cb53dffc4332a0583e52a4d30408ab7af01d732459542967237"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/quantity.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/quantity.h",
+      "sha256": "a5872f2f8baf6c2c8a00b994f28a4d13bcb5c14fe289ab3702571c544f0be824"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/temporal.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/temporal.h",
+      "sha256": "8b891938f64d25afc4c6005bca2be42baa84c54881e732b68a4467a596bc8d2e"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/temporal_posix.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/temporal_posix.h",
+      "sha256": "93cb2de533222d9109085017ded893205e59d773ca957e126d37993ae2997d9e"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/timing.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/timing.h",
+      "sha256": "896f287ea9b03b30f7a995be3442bc020a6cccff8a5ba9a98390aa48e428642b"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/token.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/token.h",
+      "sha256": "a1f058b6a9c3c64a716bc5ca577f7dbf9d2bed3dca4f60f093c20c5bba5f474d"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/include/infiltratr/utf8.h",
+      "path": "filesystems/infiltratorfs/vendor/include/infiltratr/utf8.h",
+      "sha256": "41cb9f38a759838b842fa14d1a4ba8798832ad52f7772194c2b19f324859d32f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/lz4/LICENSE",
+      "path": "filesystems/infiltratorfs/vendor/lz4/LICENSE",
+      "sha256": "4bc9c403f6b679cc076dee210e0e21c27b4e8f6d3fb43d85364c76657bfaaac5"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/lz4/lz4.c",
+      "path": "filesystems/infiltratorfs/vendor/lz4/lz4.c",
+      "sha256": "9396f7de527bc8435de9c7569fb7998e56545a84b4f3c2d808c0235c01774539"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/lz4/lz4.h",
+      "path": "filesystems/infiltratorfs/vendor/lz4/lz4.h",
+      "sha256": "26b82efc53d1570f3b54eef02e9c4764c1ad374ff03cac04e2ced5ea4d4c552f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/checksum.c",
+      "path": "filesystems/infiltratorfs/vendor/src/checksum.c",
+      "sha256": "9676fa8a73b60c922be0201a2a040ccf6cbc712326e5dd9cbba5ce5041faf003"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/fs.c",
+      "path": "filesystems/infiltratorfs/vendor/src/fs.c",
+      "sha256": "5b3e9a0f147a0c15a7abc18ea19be3059e69f9988492c453ba024336d6966b8f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/security.c",
+      "path": "filesystems/infiltratorfs/vendor/src/security.c",
+      "sha256": "61c26876f7d38815533e78128f942f9851293b840a7af004c3ffabef9c6ea653"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/status.c",
+      "path": "filesystems/infiltratorfs/vendor/src/status.c",
+      "sha256": "f57cdb21a90cb1fdbe726910763c8cc9dff4d7ddd357df5e41960ff370793a77"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/storage.c",
+      "path": "filesystems/infiltratorfs/vendor/src/storage.c",
+      "sha256": "8665bf2ec7fbe8c2d41601ec530055bf2d3a9dad605f9532c7b7179c5d6c6052"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume.c",
+      "path": "filesystems/infiltratorfs/vendor/src/volume.c",
+      "sha256": "93d34a4edaebd7b2374554fa77e8b76bb7a0d7c7991454980f384f93f7a57cde"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/allocation-map.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/allocation-map.inc",
+      "sha256": "dab935802a8a508f2ac8487cd4c93e3eed888971d73e4b818e16ff9fa18544b7"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/attributes.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/attributes.inc",
+      "sha256": "350ae1f6b528f8fdfaef7596107ce2db9055f2d9a6d7f8f11a0da94b9d1567aa"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/check.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/check.inc",
+      "sha256": "55a839dd2a4ca65bc103564580f06a665111d1984c6c2c479e73548fc938a88d"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/checkpoint-publication.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/checkpoint-publication.inc",
+      "sha256": "b4b09d04ab0f243695c0b7fc45ba3c44fc449d50bb261ad62345f9fd1f5d2a31"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/checkpoint-recovery.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/checkpoint-recovery.inc",
+      "sha256": "48420651cca41571ea08137722c01c08c52a7b9d2bbe36641f4679c220c3a34a"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/checksum-blocks.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/checksum-blocks.inc",
+      "sha256": "007cf1ba278e95ab8f67ceef7181b9b62fe59dec21e51c67ee0abac0c3bf725c"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/checksum-index.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/checksum-index.inc",
+      "sha256": "269fe90c2cc8fc021e60cbc0c12a5d891c133fa0280c9e6e3df0fd886843184b"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/checksum-update.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/checksum-update.inc",
+      "sha256": "9589e8c487e67fc4f23fa08366071f43d517663adb7433a1feb7327c31ba66f3"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/compression-metrics.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/compression-metrics.inc",
+      "sha256": "64004fa436e202f184d19883e503fccf3419f542433162e3f50054992b1a6e55"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/compression.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/compression.inc",
+      "sha256": "900f164c72c5341ee2f44aa7385768c810429f53582a181c2b8d33fc20218d89"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/core.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/core.inc",
+      "sha256": "60a53ba44ac61d8f9160843835b22d6a91313b500f8dfbd5ec9dd828aac81fe9"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/directory-tree.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/directory-tree.inc",
+      "sha256": "6ab6f8291cdc5ac42447f7445b83e9be2b259250c7edf0a8f32bfd310497f3c8"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/extension-object.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/extension-object.inc",
+      "sha256": "7a8706c7ed6920d024349388717cced34d728f3e2754e9b8eb9442074a7d9044"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/extent-replacement.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/extent-replacement.inc",
+      "sha256": "069c0eba9bca7796943f651467090c90e21f91f8508c1bf8ed26816b011d4b02"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/file-extents.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/file-extents.inc",
+      "sha256": "9349b78b77809fad1b685c7c563235af908f8c06ea2013e567af4164ba298099"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/file-hole-punch.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/file-hole-punch.inc",
+      "sha256": "0640dd639eb4f53df67aecf6ba3fba8de36a9edebbeadf934e898fd3343aaee6"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/file-layout.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/file-layout.inc",
+      "sha256": "8bfcaf1a2b19d9823c75aa097b2303b8d26e22db1fe815081111b906ca0a065c"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/file-read.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/file-read.inc",
+      "sha256": "fe3254a187266dcc2dbede325062bcf8f352202e46515be95d90dced03f1d772"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/file-truncate.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/file-truncate.inc",
+      "sha256": "6edcb3ae0382e2302540a8920aa1e9cd5b0bd7061bdbb64f5bdd1bf9ffd57f77"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/file-write.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/file-write.inc",
+      "sha256": "18aa7195bfc72311b0a1ac3c9cd9e99ed1c51b1ee6cbb34ef06670fb6371eacc"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/graph-validation.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/graph-validation.inc",
+      "sha256": "03fa7d8548903b57db21d46a15b549852a9022bd88b6f28cedc000307c421281"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/index-tree.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/index-tree.inc",
+      "sha256": "b9769ea94b360ed2e07052d18df82e159a47b1b545212a7c761084ba238bd48f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/inline-files.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/inline-files.inc",
+      "sha256": "c8cfcf70027a4084211a5eefb6373e14f05c677a29c5965448930aa8ff8e9406"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/metadata-hardening.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/metadata-hardening.inc",
+      "sha256": "1491141369f228e9bb8ccb337aa7342bf2b4298d29735b13f1b5ef9c65ecd350"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/named-streams.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/named-streams.inc",
+      "sha256": "3edc16e6b97d22f112433c326063168ec21fdae2b3ccd223138dc3a17c2ecd5b"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/namespace-directory-mutation.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/namespace-directory-mutation.inc",
+      "sha256": "925e3f939eb20e7e644cb158f6013bc8ac0a94b7a3dc6796e6205d0d268b9830"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/namespace-directory.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/namespace-directory.inc",
+      "sha256": "cf8272c529738439147c96dd799d3406f337146439873d33da5b86094a36c727"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/namespace-remove.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/namespace-remove.inc",
+      "sha256": "c6b6cf4d36aaf0119d4cb558b9daa2b45e19ef9d996522ea6b25bef63d1f18f1"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/namespace-replace.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/namespace-replace.inc",
+      "sha256": "9eeb605389df8b43ba4bb3ce5465eda6a460a32c78817c4da0911785f563171f"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/object-create.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/object-create.inc",
+      "sha256": "adf5b4b60b367b211138922e4a37503962394371d9872e0fc678d9482a3db5a1"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/ownership-validation.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/ownership-validation.inc",
+      "sha256": "f4d63593d34fb764c035b61e66f4f10aae7e6e1d31ca1105c8d2f6a3cb148f58"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/paged-extents.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/paged-extents.inc",
+      "sha256": "dd6dcd25834d0d9d4116a544ab59034cb1b8381fc59350ca4f49bbbd78d73fbf"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/paged-metadata.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/paged-metadata.inc",
+      "sha256": "67e6da29e882ca995abd18b7823c45d595b9d9c6e12eefeff7816be02f3947d9"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/path-resolution.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/path-resolution.inc",
+      "sha256": "ade42c02ba00e9a157d5a23ec2560b563ea1eb7d77a83e4f6c2325f2f9ef4a92"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/posix-metadata.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/posix-metadata.inc",
+      "sha256": "0be8bdb02e05f96307950958c030e7139d045b0e6845f068b27ad4ba916a699d"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/reflink.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/reflink.inc",
+      "sha256": "ee133badae4d39ed73cdafa6a6ebb9ac383e7713c4feecb241f6f069259f4aef"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/resize.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/resize.inc",
+      "sha256": "c284f95a55a54ca3a9fd8152e1b5f660054809ed2d17111da64bf02f013faeb8"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/runtime-cache.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/runtime-cache.inc",
+      "sha256": "e32613c9b47bbe7e7aa8d3dc18c247bcadb64c87e8f1a8754f712d2ae979decc"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/scrub.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/scrub.inc",
+      "sha256": "515068069d3f7ca9f940aa772e5d027496b9cbf8266a55d57bc71f1bd12fc285"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/security-object.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/security-object.inc",
+      "sha256": "556f7bae49b639686798d3e989f0994c6468dd1d8b2a861ee860ae8075ba7650"
+    },
+    {
+      "source": "filesystems/infiltratorfs/vendor/src/volume/snapshots.inc",
+      "path": "filesystems/infiltratorfs/vendor/src/volume/snapshots.inc",
+      "sha256": "92ea69ac4606fa01f72bffcc64dfb50848afc7183b51a09c2a669a41849bfd99"
+    },
+    {
+      "source": "filesystems/iso9660.inf",
+      "path": "filesystems/iso9660.inf",
+      "sha256": "75fefeaee82fab48108b28a9e67d04baa7b4346ee73c9923ce11ff5628f3544f"
+    },
+    {
+      "source": "filesystems/lzoconf.h",
+      "path": "filesystems/lzoconf.h",
+      "sha256": "42c2ff49d7422307452f46610576d2e9214df6f5e29dc5e45192868c9dd6fbf6"
+    },
+    {
+      "source": "filesystems/lzodefs.h",
+      "path": "filesystems/lzodefs.h",
+      "sha256": "107dd882c04d3aba4dbe01f481811d6e2186dd6a870804cd23b5aeafd71d236e"
+    },
+    {
+      "source": "filesystems/minilzo.c",
+      "path": "filesystems/minilzo.c",
+      "sha256": "f76e7829954fe87cfc6f40d5fa7c8fb1f4fe4b62cbf502232d8014ad47e0e875"
+    },
+    {
+      "source": "filesystems/minilzo.h",
+      "path": "filesystems/minilzo.h",
+      "sha256": "a396385d2e291ba70529d1ca45b14f0c22479f970f78d016dd65878f01a192dc"
+    },
+    {
+      "source": "filesystems/mk_fsw_strfunc.py",
+      "path": "filesystems/mk_fsw_strfunc.py",
+      "sha256": "a4bcfad2e3b827250bb39ee43c5f07af1d36e08935359d014d1e54ff05d07e89"
+    },
+    {
+      "source": "filesystems/ntfs.inf",
+      "path": "filesystems/ntfs.inf",
+      "sha256": "dd9725ece88397c1c96d6c981d57970f83bdc334af5ac4eab545b9d443902e03"
+    },
+    {
+      "source": "filesystems/reiserfs.inf",
+      "path": "filesystems/reiserfs.inf",
+      "sha256": "574783121e99a3560241079ef5cdd9b8fd073246de54dd1b5dd211f892a7e02a"
+    },
+    {
+      "source": "filesystems/scandisk.c",
+      "path": "filesystems/scandisk.c",
+      "sha256": "419e58d7c7e78cfed422ec9eeaaaa1aa624dde129ff87d1acb1961da5146e95e"
+    },
+    {
+      "source": "filesystems/test/Makefile",
+      "path": "filesystems/test/Makefile",
+      "sha256": "49c8ebdfeaf3574d9139e4603c88a40c2e3f91153959de68c54dc03428e55947"
+    },
+    {
+      "source": "filesystems/test/README",
+      "path": "filesystems/test/README",
+      "sha256": "70621335a19780c01cc7761dd73873a09f007f41d71bbf69cc67ed3d91b36d76"
+    },
+    {
+      "source": "filesystems/test/fsw_posix.c",
+      "path": "filesystems/test/fsw_posix.c",
+      "sha256": "3ba5a3cb760293b8d55ac7ee81016b864c8732c219f761745437a09d7d5ce005"
+    },
+    {
+      "source": "filesystems/test/fsw_posix.h",
+      "path": "filesystems/test/fsw_posix.h",
+      "sha256": "577194900103bc409659764942d7baee03eff7c63f13bc6c6b5ab565a71279c4"
+    },
+    {
+      "source": "filesystems/test/fsw_posix_base.h",
+      "path": "filesystems/test/fsw_posix_base.h",
+      "sha256": "f3d3aa341afb4af2760e8d310625a372427543ba0582eac5a4b50117feb1b183"
+    },
+    {
+      "source": "filesystems/test/lslr.c",
+      "path": "filesystems/test/lslr.c",
+      "sha256": "c0ce9b1cd1b3b6ba9daf76c76faea70780d4a22edf1ef63ce6bbd1ca5dd2edbc"
+    },
+    {
+      "source": "filesystems/test/lsroot.c",
+      "path": "filesystems/test/lsroot.c",
+      "sha256": "d31ba24c50f997a233478b60863769e3373976a59ebb0d4adb56718d655a1c6a"
+    },
+    {
+      "source": "filesystems/zstd/bitstream.h",
+      "path": "filesystems/zstd/bitstream.h",
+      "sha256": "f7918f78870fe5f382f20f66929c7cc675d0fc98f83e60c7d975e15ccde54ce4"
+    },
+    {
+      "source": "filesystems/zstd/error_private.h",
+      "path": "filesystems/zstd/error_private.h",
+      "sha256": "92ca6f907fa43aec80c456fc347763caa073e20712bf2d8ef262898c3cb72143"
+    },
+    {
+      "source": "filesystems/zstd/fse.h",
+      "path": "filesystems/zstd/fse.h",
+      "sha256": "19bd6a415ea9a94eca778ca1005e44abba1b9b3c0be76f63bb01f1b5b1fb8828"
+    },
+    {
+      "source": "filesystems/zstd/fse_decompress.c",
+      "path": "filesystems/zstd/fse_decompress.c",
+      "sha256": "60bf2c00061d2a3e6b8067e855140f904bd423c8a723d0d480421efb446eeac2"
+    },
+    {
+      "source": "filesystems/zstd/huf.h",
+      "path": "filesystems/zstd/huf.h",
+      "sha256": "8c84dcff6098ce0ed83be89997e2510e5aa5cc25299f3842d3cb9b75826aa931"
+    },
+    {
+      "source": "filesystems/zstd/huf_decompress.c",
+      "path": "filesystems/zstd/huf_decompress.c",
+      "sha256": "76b4748b9522a2910a71e3a22f6a6033e280c080e074db04a012d93edb5a4351"
+    },
+    {
+      "source": "filesystems/zstd/mem.h",
+      "path": "filesystems/zstd/mem.h",
+      "sha256": "2ba2126f63c9c0ec303c50c1172fdf7ccdaab4584edae8be26123ad4fd9c3968"
+    },
+    {
+      "source": "filesystems/zstd/xxhash.h",
+      "path": "filesystems/zstd/xxhash.h",
+      "sha256": "7a44d2d098e8f14d780fbec93675e1596d96c9c30e1af82371b42cf5c8f52f3c"
+    },
+    {
+      "source": "filesystems/zstd/xxhash64.c",
+      "path": "filesystems/zstd/xxhash64.c",
+      "sha256": "d310bd2549019db56df528cfddc0c0e6d67465fd7301b5d4fc8e0eeb5230711a"
+    },
+    {
+      "source": "filesystems/zstd/zstd.h",
+      "path": "filesystems/zstd/zstd.h",
+      "sha256": "5d79f20cd4629dcd0821f1572bcc88f483415fa29a2b4ef8e847499b35329b81"
+    },
+    {
+      "source": "filesystems/zstd/zstd_decompress.c",
+      "path": "filesystems/zstd/zstd_decompress.c",
+      "sha256": "4de9c6d93834e57a665b24114b529b2dc5093f93443ff6e8ea724cd1f3742fa6"
+    },
+    {
+      "source": "filesystems/zstd/zstd_internal.h",
+      "path": "filesystems/zstd/zstd_internal.h",
+      "sha256": "3281a82ebc619f5d9c2e8f8d21f2de5550cfd88b6a10d905026e34a3aa2981f5"
+    }
+  ]
+}
