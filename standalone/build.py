@@ -64,7 +64,7 @@ def compile_module(module, flags, training=False):
         args += ["-I", directory]
     if not training:
         args += ["-nostdlib"]
-    args += ["-shared", "-Wl,-z,defs", "-Wl,-z,relro",
+    args += ["-shared", "-Wl,-Bsymbolic", "-Wl,-z,defs", "-Wl,-z,relro",
              "-Wl,-z,now", "-o", module, *SOURCES]
     run(args)
     if not training:
