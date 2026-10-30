@@ -38,11 +38,21 @@ jobs:
           from pathlib import Path
           import hashlib
           lib = Path("/System/Filesystems/FAT12.so")
-          info = Path("/System/Resources/Documentation/Filesystem-FAT12/BUILD-INFO").read_text()
-          assert "Profile: aggressive\n" in info
-          assert "PGO: trained two-pass profile (V1 and V3/V4 fixtures)\n" in info
-          assert "-O3 -march=native -mtune=native -flto=auto" in info
-          assert f"SHA256: {hashlib.sha256(lib.read_bytes()).hexdigest()}\n" in info
+          import os
+          import subprocess
+          docs = Path("/System/Resources/Documentation/Filesystem-FAT12")
+          manual = docs / "FAT12.pdf"
+          assert manual.read_bytes().startswith(b"%PDF-")
+          assert {p.name for p in docs.iterdir()} == {manual.name}
+          report = subprocess.check_output(["dpkg-query", "-s", "infiltrator-filesystem-fat12"], text=True)
+          fields = dict(line.split(": ", 1) for line in report.splitlines() if ": " in line)
+          assert fields["X-Infiltrator-Native-Profile"] == "aggressive"
+          assert fields["X-Infiltrator-PGO"] == "trained-two-pass"
+          assert fields["X-Infiltrator-LTO"] == "enabled"
+          assert fields["X-Infiltrator-Source-Revision"] == os.environ["GITHUB_SHA"]
+          assert "-O3 -march=native -mtune=native -flto=auto" in fields["X-Infiltrator-Cflags"]
+          assert fields["X-Infiltrator-Resource-SHA256"] == hashlib.sha256(lib.read_bytes()).hexdigest()
+          assert fields["X-Infiltrator-PDF-SHA256"] == hashlib.sha256(manual.read_bytes()).hexdigest()
           assert not Path("/System/Filesystems/FAT16.so").exists()
           PY
       - uses: actions/upload-artifact@v4
