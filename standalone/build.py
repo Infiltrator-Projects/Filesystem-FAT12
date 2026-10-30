@@ -86,7 +86,7 @@ def train_profile(module, workspace):
 
 def build(profile, module):
     module.parent.mkdir(parents=True, exist_ok=True)
-    flags = ["-std=c11", "-fPIC", "-fno-stack-protector", "-fno-builtin",
+    flags = ["-std=c11", "-fPIC", "-mno-red-zone", "-fno-stack-protector", "-fno-builtin",
              "-fno-tree-loop-distribute-patterns", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=0",
              "-ffreestanding", "-fvisibility=hidden", "-D_GNU_SOURCE",
              "-D_FILE_OFFSET_BITS=64", f"-DIFS_FATFS_ONLY={WIDTH}",
@@ -94,7 +94,8 @@ def build(profile, module):
     if profile == "portable":
         flags += ["-O2", "-march=x86-64", "-mtune=generic"]
     else:
-        flags += ["-O3", "-march=native", "-mtune=native", "-flto=auto"]
+        flags += ["-O3", "-march=native", "-mtune=native", "-flto=auto",
+                  "-mno-avx", "-mno-avx2", "-mno-avx512f", "-mno-amx-tile"]
     for directory in INCLUDES:
         if not directory.is_dir():
             raise RuntimeError("Required copied source missing: " + str(directory))
