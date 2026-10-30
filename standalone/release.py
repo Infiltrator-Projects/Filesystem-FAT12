@@ -81,6 +81,7 @@ def source_files():
         selected = (
             q.startswith("native/filesystems/fat/") or
             q.startswith("src/infiltratr-common/include/") or
+            q.startswith("native/include/") or
             q.startswith("standalone/") or q.startswith("docs/") or
             q in ("README.md", "VERSION", "MIGRATION-PROVENANCE.md",
                   "src/infiltratr-common/LICENSE", f"tests/fat{WIDTH}_module_test.c",

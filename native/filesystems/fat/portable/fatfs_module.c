@@ -150,6 +150,16 @@ static int detach(void)
     bound = 0;
     return 0;
 }
+/* The UEFI filesystem bridge supplies partition-relative BlockIo bytes. */
+int ifs_fatfs_boot_attach(const IfsFatfsIo *io)
+{
+    if (attach(io) != 0) return -1;
+    if (volume.volbase != 0u) {
+        (void)detach();
+        return -1;
+    }
+    return 0;
+}
 static int create_file(const char *path)
 {
     FIL f;

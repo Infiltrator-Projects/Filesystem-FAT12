@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import tempfile
 
@@ -15,13 +16,14 @@ DEF = BASE / "defrag"
 MOD = BASE / "module"
 PORT = BASE / "portable"
 SOURCES = [MOD / f"fat{WIDTH}_module.c"] + [
-    PORT / name for name in ("fatfs_module.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
+    PORT / name for name in ("fatfs_module.c", "fatfs_boot.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
 ] + [DEF / name for name in ("writer.c", "fat_analysis.c", "fat_directory.c",
     "fat_relayout.c", "fat_io.c", "fat_journal.c", "fat_relocation.c",
     "fat_volume.c", "fat_defrag_module.c")]
-INCLUDES = [MOD, PORT, DEF, DEF / "host", ROOT / "src/infiltratr-common/include"]
+INCLUDES = [MOD, PORT, DEF, DEF / "host", ROOT / "native/include", ROOT / "src/infiltratr-common/include"]
 EXPORTS = ("infiltrator_filesystem_module_v1", "infiltrator_filesystem_module_v3",
-           "infiltrator_filesystem_module_v4", "infiltrator_filesystem_defrag_v1")
+           "infiltrator_filesystem_module_v4", "infiltrator_filesystem_defrag_v1",
+           "infiltrator_filesystem_boot_v1")
 
 def run(args):
     subprocess.run([str(a) for a in args], check=True)
@@ -42,6 +44,18 @@ def inspect(module):
             raise RuntimeError("Missing exact FAT format identity")
     if "(NEEDED)" in subprocess.check_output(["readelf", "-d", str(module)], text=True):
         raise RuntimeError("Unexpected runtime shared-library dependency")
+    manifest = struct.pack("<8sIIII16s32s", b"IFSBOOT1", 72, 1, 62, 1,
+                           f"fat{WIDTH}".encode(), f"FAT{WIDTH}".encode())
+    if manifest not in module.read_bytes():
+        raise RuntimeError("Missing exact freestanding Boot manifest")
+    relocations = subprocess.check_output(["readelf", "-Wr", str(module)], text=True)
+    for line in relocations.splitlines():
+        if "R_X86_64_" in line and "R_X86_64_RELATIVE" not in line:
+            raise RuntimeError("Unsupported Boot relocation: " + line)
+    for line in subprocess.check_output(["readelf", "--dyn-syms", "-W", str(module)], text=True).splitlines():
+        fields = line.split()
+        if "UND" in fields and fields[0] != "0:":
+            raise RuntimeError("Undefined Boot import: " + line)
 
 def compile_module(module, flags, training=False):
     """Use host profiling libraries only for the throwaway instrumented pass."""
@@ -50,7 +64,7 @@ def compile_module(module, flags, training=False):
         args += ["-I", directory]
     if not training:
         args += ["-nostdlib"]
-    args += ["-shared", "-Wl,-z,defs", "-Wl,-z,relro",
+    args += ["-shared", "-Wl,-Bsymbolic", "-Wl,-z,defs", "-Wl,-z,relro",
              "-Wl,-z,now", "-o", module, *SOURCES]
     run(args)
     if not training:
@@ -72,7 +86,7 @@ def train_profile(module, workspace):
 
 def build(profile, module):
     module.parent.mkdir(parents=True, exist_ok=True)
-    flags = ["-std=c11", "-fPIC", "-fno-stack-protector", "-fno-builtin",
+    flags = ["-std=c11", "-fPIC", "-mno-red-zone", "-fno-stack-protector", "-fno-builtin",
              "-fno-tree-loop-distribute-patterns", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=0",
              "-ffreestanding", "-fvisibility=hidden", "-D_GNU_SOURCE",
              "-D_FILE_OFFSET_BITS=64", f"-DIFS_FATFS_ONLY={WIDTH}",
@@ -80,7 +94,8 @@ def build(profile, module):
     if profile == "portable":
         flags += ["-O2", "-march=x86-64", "-mtune=generic"]
     else:
-        flags += ["-O3", "-march=native", "-mtune=native", "-flto=auto"]
+        flags += ["-O3", "-march=native", "-mtune=native", "-flto=auto",
+                  "-mno-avx", "-mno-avx2", "-mno-avx512f", "-mno-amx-tile"]
     for directory in INCLUDES:
         if not directory.is_dir():
             raise RuntimeError("Required copied source missing: " + str(directory))

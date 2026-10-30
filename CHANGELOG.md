@@ -1,5 +1,14 @@
 # Filesystem FAT12 changelog
 
+## 0.1.5 — 2026-10-30 (unified Boot SO implementation)
+
+- Port the existing FAT12-compatible, generic read-only Boot filesystem adapter from the qualified FAT16 implementation; preserve the unchanged V1/V3/V4 and Defragmenter interfaces.
+- Reuse FAT12.so's own portable FatFs engine for file discovery, streaming and directory access instead of shipping a second parser into Boot.
+- Validate the ELF Boot manifest, relative relocations, absence of runtime imports and partition-only mount boundaries; reject invalid modules without falling back.
+- Add real Boot ELF/UEFI and OVMF Linux kernel/initramfs acceptance gates, both portable and native module profiles.
+- Correct native freestanding LTO intrinsic retention and include ABI headers in the source-embedded native installer; transitional KO/EFI and kernel-SO bridge limits remain explicit.
+
+
 ## 0.1.4 — 2026-10-29 (single-driver architecture documentation)
 
 - Define `FAT12.so` as the only final filesystem-specific distributed driver for BOOT, kernel and applications; one canonical FAT12 engine.

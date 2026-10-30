@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: filesystem-fat12-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   qualify:
     runs-on: ubuntu-24.04
@@ -51,10 +51,69 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+  boot-consumer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out immutable released Boot consumer
+        uses: actions/checkout@v4
+        with:
+          repository: Infiltrator-Projects/Boot
+          ref: dbc6a710dbe88b78318c8b9afbf47bb64e8706b3
+          path: .qualification/Boot
+      - name: Install generic ELF and actual firmware qualification tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils python3 gnu-efi qemu-system-x86 ovmf dosfstools mtools busybox-static cpio
+      - name: Qualify the exact FAT12.so with the unmodified Boot implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE"
+          boot="$root/.qualification/Boot"
+          make check
+          python3 standalone/build.py --profile aggressive --output build-native/FAT12.so --check
+          # Only the FAT16-specific test fixtures are adapted; production Boot stays unchanged.
+          python3 - "$boot" <<'PY'
+          from pathlib import Path
+          import sys
+          boot=Path(sys.argv[1])
+          p=boot/'tests/run-so-tests.sh'
+          s=p.read_text().replace('FAT16', 'FAT12').replace('fat16', 'fat12')
+          s=s.replace('mkfs.fat -F 16 ', 'mkfs.fat -F 12 -s 32 ')
+          p.write_text(s)
+          p=boot/'tests/so_module_test.c'
+          p.write_text(p.read_text().replace('"fat16"', '"fat12"'))
+          p=boot/'tests/test_so_boot.py'
+          s=p.read_text().replace('FAT16', 'FAT12').replace('fat16', 'fat12')
+          s=s.replace('"mkfs.fat", "-F", "16", "-I"', '"mkfs.fat", "-F", "12", "-s", "64", "-I"')
+          p.write_text(s)
+          PY
+          cd "$boot"
+          bash scripts/build-gnuefi.sh
+          cd "$root"
+          for profile in build build-native; do
+            bash "$boot/tests/run-so-tests.sh" "$root/$profile/FAT12.so" "$root"
+          done
+          IFS_SO_SANITIZE=1 bash "$boot/tests/run-so-tests.sh" "$root/build/FAT12.so" "$root"
+          mkdir -p build/boot-kernel
+          package=$(apt-cache depends linux-image-generic | awk '/Depends: linux-image-[0-9]/ {sub("linux-image-", "linux-image-unsigned-", $2); print $2; exit}')
+          test -n "$package"
+          (cd build/boot-kernel && apt-get download "$package")
+          dpkg-deb -x build/boot-kernel/*.deb build/boot-kernel/root
+          kernel=$(find "$root/build/boot-kernel/root/boot" -name 'vmlinuz-*' -print -quit)
+          test -s "$kernel"
+          for profile in build build-native; do
+            python3 "$boot/tests/test_so_boot.py" --boot "$boot/refind/refind_x64.efi" \
+              --module "$root/$profile/FAT12.so" --kernel "$kernel" \
+              --output "$root/build/boot-$profile"
+          done
+          python3 "$boot/tests/test_so_boot.py" --boot "$boot/refind/refind_x64.efi" \
+            --module "$root/build/FAT12.so" --kernel "$kernel" --reject-module \
+            --output "$root/build/boot-reject"
   native-drivers:
     uses: ./.github/workflows/drivers.yml
   publish:
-    needs: [qualify, native-drivers]
+    needs: [qualify, boot-consumer, native-drivers]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
