@@ -1,16 +1,27 @@
 # Filesystem-FAT12 validation and release criteria
 
-**Completion standard:** [one FAT12.so shared across all consumers](ONE_MODULE_END_STATE.md), not merely independent tests of three binaries. Native read/write/format/defragmentation, real BOOT `.so` loading and kernel mount/root behavior must pass independently. Historical package tests below do not prove the universal loader is implemented.
+**Completion standard:** [one FAT12.so shared across all consumers](ONE_MODULE_END_STATE.md), not merely independent tests of three binaries. Native read/write/format/defragmentation, real BOOT `.so` loading and kernel mount/root behavior must pass independently. The Boot ELF/UEFI shared-object bridge is tested separately with real Linux handoff; the generic kernel SO loader is still unimplemented.
 
 ## Evidence separation
 
 1. Source copied: import hash, local source files and preserved notices, but NO functional qualification.
 2. Build: native compiler produces an ELF DYN `FAT12.so` with no unexpected dynamic dependencies.
-3. ABI: correct width metadata, V1/V3/V4 and Defragmenter entry points, no substitution by another format.
+3. ABI: correct width metadata, V1/V3/V4, Defragmenter and Boot V1 entry points, validated IFSBOOT1 manifest, no substitution by another format.
 4. Fixture: current `tests/fat12_module_test.c` runs against the exact standalone shared object on an in-memory volume.
 5. Integration: Defragmenter's versioned child-worker maps, relocates and recovers disposable independently formatted FAT images, including interrupted-journal stages and independent post-verification.
 6. Packaging: inspect exact owned paths in the Debian archive; install the native `.run`, verify native package version, BUILD-INFO and module SHA-256, and ensure the other format remains unchanged.
 7. Hardware: physical removable media, supported distributions/kernels and actual UEFI firmware testing. CI and QEMU are not substitutes for hardware evidence.
+
+## Boot consumer qualification (0.1.5)
+
+The exact Boot v0.1.38 implementation is checked out at its immutable commit;
+only its FAT16-specific fixture naming and FAT12 geometry are adapted, never its
+production ELF loader or UEFI adapter. Both portable and aggressively optimized
+FAT12.so must pass the released loader's malformed-ELF, relative-relocation,
+partition-relative read-only, and actual OVMF Linux kernel/initramfs handoff
+tests. A missing or corrupt FAT12.so must not silently fall back to firmware FAT.
+The released kernel-specific KO and standalone EFI remain separate transitional
+artifacts; these tests do not establish native physical Secure Boot signing.
 
 ## Native PGO qualification
 
