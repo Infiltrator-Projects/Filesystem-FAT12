@@ -1,7 +1,7 @@
 name: Qualify and publish independent FAT12 module
 on:
   push:
-    branches: [main, migration/full-source-fat12-20261028]
+    branches: [main, migration/full-source-fat12-20261028, feature/full-fat12-so-ko-efi-20261028]
   pull_request:
     branches: [main]
   workflow_dispatch:
