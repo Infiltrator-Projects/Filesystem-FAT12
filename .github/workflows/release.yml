@@ -9,7 +9,8 @@ permissions:
   contents: read
 concurrency:
   group: filesystem-fat12-${{ github.ref }}
-  cancel-in-progress: false
+  # Retire stale feature-branch qualifications; never cancel main releases.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   driver-runtime:
     uses: ./.github/workflows/driver-runtime.yml
