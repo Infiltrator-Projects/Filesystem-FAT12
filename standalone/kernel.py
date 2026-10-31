@@ -74,7 +74,11 @@ def main():
         name = subprocess.check_output(["modinfo", "-F", "name", str(built)], text=True).strip()
         vermagic = subprocess.check_output(["modinfo", "-F", "vermagic", str(built)], text=True).strip()
         if name != f"fat{WIDTH}" or vermagic.split(" ")[0] != release:
-            raise RuntimeError("Compiled FAT driver does not match the kernel ABI")
+            raise RuntimeError(
+                f"Compiled FAT driver does not match the kernel ABI: "
+                f"expected name=fat{WIDTH}, release={release!r}; "
+                f"actual name={name!r}, vermagic={vermagic!r}"
+            )
         if (src / f"fat{OTHER}.ko").exists():
             raise RuntimeError("Unexpected other-format module built")
         shutil.copyfile(built, destination)
