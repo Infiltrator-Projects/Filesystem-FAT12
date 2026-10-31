@@ -37,16 +37,25 @@ def main():
     kernel = args.kernel_tree.resolve(strict=True)
     if not (kernel / "Makefile").is_file() or not (kernel / "Module.symvers").is_file():
         raise RuntimeError("Kernel headers and prepared Module.symvers are required")
-    # Distribution kernel headers may retain an upstream Makefile version
-    # (e.g. 6.8.12) while the prepared ABI is 6.8.0-147-generic. Kbuild
-    # stamps modules with the generated release, not that source version.
+    # Distribution headers can have an upstream Makefile version (6.8.12)
+    # while the prepared module ABI uses a distro release (6.8.0-147-generic).
+    # The generated release is what Kbuild actually puts into vermagic.
     generated_release = kernel / "include/config/kernel.release"
     generated_uts = kernel / "include/generated/utsrelease.h"
     if generated_release.is_file():
         release = generated_release.read_text().strip()
     elif generated_uts.is_file():
         import re
-        match = re.search(r'^#define UTS_RELEASE "([^"]+)"
+        match = re.search(r'^#define UTS_RELEASE "([^"]+)"$', generated_uts.read_text(), re.M)
+        if not match:
+            raise RuntimeError("Prepared kernel has invalid UTS_RELEASE")
+        release = match.group(1)
+    else:
+        release = subprocess.check_output(
+            ["make", "-s", "-C", str(kernel), "kernelrelease"], text=True
+        ).strip()
+    if not release or "/" in release:
+        raise RuntimeError("Prepared kernel has invalid kernelrelease")
     if not SOURCE.is_dir() or not (SOURCE / f"namei_fat{WIDTH}.c").is_file():
         raise RuntimeError("The selected FAT kernel driver sources were not packaged")
     # Linux FAT core APIs changed between 6.8 and 6.12. Never link a 6.12
