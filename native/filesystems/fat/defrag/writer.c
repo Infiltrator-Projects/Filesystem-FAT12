@@ -407,7 +407,9 @@ static bool execute_forward_compaction(
                 u32vec_free(&local_root);
                 break;
             }
-            if (batch_objects == 0 && object->clusters > workspace_clusters) {
+            if (batch_objects == 0 &&
+                (object->clusters > workspace_clusters ||
+                 object->clusters > cluster_batch_limit)) {
                 u32vec_free(&local_root);
                 free(source_seen);
                 free(stage_moves);
@@ -1737,11 +1739,17 @@ static FatRelayoutStats fat_relayout_volume(Fat32 *fs, const char *journal_path,
 
     size_t reverse = objects.len;
     size_t object_batch_limit = objects.len;
-    size_t cluster_batch_limit = ram_cluster_limit;
+    /* Every fast-path journal transaction must obey the same bounded Stop
+       latency as the adaptive path. Ample free space is not permission to
+       stage the entire live filesystem in one uninterruptible transaction. */
+    size_t cluster_batch_limit =
+        adaptive_transaction_cluster_limit(fs, ram_cluster_limit);
     fprintf(stderr,
-            "%s layout batching: RAM budget up to %zu clusters; up to %zu objects "
-            "may share a dependency batch.\n",
-            layout_name, cluster_batch_limit, object_batch_limit);
+            "%s layout batching: Stop-safe transaction budget up to %zu clusters "
+            "(RAM budget up to %zu clusters); up to %zu objects may share a "
+            "dependency batch.\n",
+            layout_name, cluster_batch_limit, ram_cluster_limit,
+            object_batch_limit);
 
     bool completed_forward = execute_forward_compaction(
         fs, journal_path, &objects, workspace_start, workspace_clusters,
