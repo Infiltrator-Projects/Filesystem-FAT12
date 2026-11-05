@@ -8,7 +8,7 @@ The original shared-object release convention published two assets; later transi
 
 ## Package ownership
 
-Debian package identity `infiltrator-filesystem-fat12`. The package owns `/System/Filesystems/FAT12.so` and passive documentation under `/System/Resources/Documentation/Filesystem-FAT12/`. It must NOT own the opposite FAT module, another filesystem, `/usr/lib/filesystems`, or the Defragmenter executable. Reinstall or removal targets only the selected module. A previous Filesystems selector may have installed an unowned module at the same path; confirm ownership and upgrade behaviour before retiring its installer.
+Debian package identity `infiltrator-filesystem-fat12`. The package owns `/System/Filesystems/FAT12.so` and passive documentation under `/System/Resources/Documentation/Filesystem-FAT12.pdf`. It must NOT own the opposite FAT module, another filesystem, `/usr/lib/filesystems`, or the Defragmenter executable. Reinstall or removal targets only the selected module. A previous Filesystems selector may have installed an unowned module at the same path; confirm ownership and upgrade behaviour before retiring its installer.
 
 ## Generic and native builds
 

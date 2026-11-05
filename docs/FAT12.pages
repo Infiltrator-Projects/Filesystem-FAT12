@@ -41,7 +41,7 @@ BT /F1 10.7 Tf 0.060 0.115 0.200 rg 1 0 0 1 65 307 Tm (Generic Boot bridge can r
 BT /F2 15 Tf 0.060 0.115 0.200 rg 1 0 0 1 60 245 Tm (One installed module and one manual) Tj ET
 0.930 0.960 0.970 rg 45 136 506 79 re f
 BT /F3 11 Tf 0.060 0.115 0.200 rg 1 0 0 1 60 192 Tm (/System/Filesystems/FAT12.so) Tj ET
-BT /F3 10 Tf 0.060 0.115 0.200 rg 1 0 0 1 60 168 Tm (/System/Resources/Documentation/Filesystem-FAT12/) Tj ET
+BT /F3 10 Tf 0.060 0.115 0.200 rg 1 0 0 1 60 168 Tm (/System/Resources/Documentation/) Tj ET
 BT /F3 11 Tf 0.020 0.520 0.560 rg 1 0 0 1 60 147 Tm (FAT12.pdf) Tj ET
 
 %%Page
@@ -89,7 +89,7 @@ BT /F2 14 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 700 Tm (Filesystem-FAT12) Tj ET
 BT /F1 11 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 673 Tm (Release @VERSION@) Tj ET
 BT /F2 13 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 620 Tm (Installed files) Tj ET
 BT /F3 8 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 591 Tm (/System/Filesystems/FAT12.so) Tj ET
-BT /F3 8 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 568 Tm (/System/Resources/Documentation/Filesystem-FAT12/FAT12.pdf) Tj ET
+BT /F3 8 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 568 Tm (/System/Resources/Documentation/Filesystem-FAT12.pdf) Tj ET
 BT /F3 8 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 545 Tm (/System/Kernel/Filesystems/fat12.ko) Tj ET
 BT /F2 13 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 475 Tm (Debian package) Tj ET
 BT /F1 11 Tf 0.07 0.14 0.24 rg 1 0 0 1 48 450 Tm (Install the prebuilt files with dpkg -i followed by the Debian filename.) Tj ET

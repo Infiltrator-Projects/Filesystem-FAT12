@@ -28,7 +28,7 @@ FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,
 ## Installer files
 
 - `/System/Filesystems/FAT12.so`
-- `/System/Resources/Documentation/Filesystem-FAT12/FAT12.pdf`
+- `/System/Resources/Documentation/Filesystem-FAT12.pdf`
 - `/System/Kernel/Filesystems/fat12.ko`
 
 The published Debian package installs these three regular files. A manual native RUN compiles the shared object and Linux adapter locally, generates the PDF, and replaces all three files. It uses the running kernel headers by default. Use `--kernel-build DIRECTORY` for a prepared kernel build with `Module.symvers`. The kernel module is stored for manual use.
