@@ -1,0 +1,8 @@
+{
+  "name": "fat12",
+  "directory": "native/filesystems/fat/linux",
+  "paths": [
+    "native/filesystems/fat"
+  ],
+  "makefile": "Makefile.variants"
+}

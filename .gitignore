@@ -1,6 +1,3 @@
-/build/
-/cmake-build-*/
-compile_commands.json
-*.user
-*.swp
-*~
+
+kernel-source/
+__pycache__/
