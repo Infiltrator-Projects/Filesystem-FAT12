@@ -20,3 +20,11 @@ The portable API supports one active volume per module, requires serialized acce
 ## Transitional platform adapters (not the end state)
 
 `fat12.ko` is kernel-version dependent and relies on a compatible Linux FAT core. `FAT12.efi` requires EDK2 and firmware qualification. Neither is treated as the same ABI as this shared object and neither is installed by the independent initial Debian package.
+
+## Common V1 pilot (9 November 2026)
+
+The source now additionally exports `infiltrator_filesystem_api_v1()` from the **existing** Common/Libraries `include/infiltratr/filesystem_module.h` contract. FAT12 carries an exact source snapshot of that freestanding header (Common `main` commit `a99ef676b0e43c7e645c81756e3fd38be0a54406`, header blob `20682324e93982b672ab1c53b04a95d8b04836ff`) until the Common dependency can be pinned. This is interface metadata/host adaptation, not a copy of a filesystem engine.
+
+This **first implementation step** advertises only `IFS_FS_CAP_PROBE` and `IFS_FS_CAP_FORMAT`. Probe uses FAT12's existing validated V1 geometry parser. Common formatting invokes the existing V4 formatter only when the caller declares verified exclusive access, provides read/write/flush callbacks, chooses variant 12, leaves the label empty and supplies a pre-existing, independently recognisable FAT12 volume. The existing BPB supplies sector size; **blank-device formatting via Common V1 is not supported** because that host contract does not supply a target logical-sector size. An unspecified/nonempty volume label never gets silently ignored. Formatting remains destructive and non-atomic.
+
+Common V1 mount/list/read/write/create/rename/delete/truncate/check/recover are **not yet implemented**. The full legacy FAT12 V3/V4, Defragmenter and Boot interfaces continue to operate through their established entry points, but their capabilities cannot be claimed as Common V1 capabilities. Defragmentation has its separately versioned host ABI; there is no generic defrag interface in Common V1 yet. Files right-click actions, generic kernel SO loading, kernel VFS support and physical media qualification are still pending. Do not present this as a completed all-consumer migration.
