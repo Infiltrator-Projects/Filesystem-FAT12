@@ -7,6 +7,17 @@
 #include "fatfs_module.h"
 #include "ff.h"
 #include "diskio.h"
+#include "fat12_module.h"
+#include "fat_defrag_abi.h"
+#include "infiltratr/fs/boot_module.h"
+#include "infiltratr/fs/unified_module.h"
+
+#if IFS_FATFS_ONLY != 12
+#error "The unified descriptor pilot is owned by FAT12 only"
+#endif
+
+extern const IfsBootModuleV1 *IFS_BOOT_CALL infiltrator_filesystem_boot_v1(void);
+
 
 #if defined(IFS_FATFS_ONLY) && IFS_FATFS_ONLY == 12
 #define REQUIRED_FS FS_FAT12
@@ -428,3 +439,49 @@ static const IfsFatfsModuleV4 module_v4={
 };
 __attribute__((visibility("default")))
 const IfsFatfsModuleV4 *infiltrator_filesystem_module_v4(void) {return &module_v4;}
+
+/*
+ * The FAT12 pilot exposes one descriptor for every established ABI within
+ * these exact SO bytes. Existing V1/V3/V4/defrag/Boot entry points remain
+ * unchanged; all consumers may discover them through this single interface.
+ * CHECK and REPAIR are deliberately not advertised: these must be implemented
+ * and independently validated before Files or Setup may offer them.
+ */
+static const void *ifs_fat12_query_interface(uint32_t interface_id)
+{
+    switch (interface_id) {
+    case IFS_UNIFIED_INTERFACE_PROBE_V1:
+        return infiltrator_filesystem_module_v1();
+    case IFS_UNIFIED_INTERFACE_FILES_V3:
+        return infiltrator_filesystem_module_v3();
+    case IFS_UNIFIED_INTERFACE_VOLUME_V4:
+        return infiltrator_filesystem_module_v4();
+    case IFS_UNIFIED_INTERFACE_DEFRAG_V1:
+        return infiltrator_filesystem_defrag_v1();
+    case IFS_UNIFIED_INTERFACE_BOOT_V1:
+        return infiltrator_filesystem_boot_v1();
+    default:
+        return 0;
+    }
+}
+__attribute__((used,section(".ifsmeta")))
+static const char ifs_fat12_unified_identity[] =
+    "IFS-MODULE:fat12:unified1";
+static const IfsUnifiedModuleV1 ifs_fat12_unified_descriptor = {
+    IFS_UNIFIED_MODULE_ABI_V1,
+    sizeof(IfsUnifiedModuleV1),
+    "fat12",
+    "FAT12",
+    IFS_UNIFIED_CAP_PROBE |
+    IFS_UNIFIED_CAP_FILE_READ |
+    IFS_UNIFIED_CAP_FILE_WRITE |
+    IFS_UNIFIED_CAP_FORMAT |
+    IFS_UNIFIED_CAP_DEFRAG |
+    IFS_UNIFIED_CAP_BOOT_READ,
+    ifs_fat12_query_interface
+};
+__attribute__((visibility("default")))
+const IfsUnifiedModuleV1 *infiltrator_filesystem_unified_v1(void)
+{
+    return &ifs_fat12_unified_descriptor;
+}
