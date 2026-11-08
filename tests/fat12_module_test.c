@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Independent in-memory FAT12 fixture. No host filesystem or block devices. */
 #include "fat12_module.h"
+#include "../native/include/infiltratr/fs/unified_module.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -100,6 +101,28 @@ int main(void)
         (api->capabilities & IFS_FAT12_CAP_FILE_READ) == 0 ||
         (api->capabilities & IFS_FAT12_CAP_ROOT_FRAGMENT_COUNT) == 0)
         return failure("bad module ABI or capabilities");
+    /* A consumer must be able to discover every FAT12 service through one
+     * module, without searching for per-format .ko or .efi products. */
+    const IfsUnifiedModuleV1 *unified = infiltrator_filesystem_unified_v1();
+    const uint64_t required =
+        IFS_UNIFIED_CAP_PROBE | IFS_UNIFIED_CAP_FILE_READ |
+        IFS_UNIFIED_CAP_FILE_WRITE | IFS_UNIFIED_CAP_FORMAT |
+        IFS_UNIFIED_CAP_DEFRAG | IFS_UNIFIED_CAP_BOOT_READ;
+    if (!unified || unified->abi_version != IFS_UNIFIED_MODULE_ABI_V1 ||
+        unified->structure_bytes != sizeof(*unified) ||
+        strcmp(unified->format_id, "fat12") != 0 ||
+        strcmp(unified->display_name, "FAT12") != 0 ||
+        !unified->query_interface ||
+        (unified->capabilities & required) != required ||
+        (unified->capabilities & (IFS_UNIFIED_CAP_CHECK |
+                                  IFS_UNIFIED_CAP_REPAIR)) != 0 ||
+        unified->query_interface(IFS_UNIFIED_INTERFACE_PROBE_V1) != api ||
+        !unified->query_interface(IFS_UNIFIED_INTERFACE_FILES_V3) ||
+        !unified->query_interface(IFS_UNIFIED_INTERFACE_VOLUME_V4) ||
+        !unified->query_interface(IFS_UNIFIED_INTERFACE_DEFRAG_V1) ||
+        !unified->query_interface(IFS_UNIFIED_INTERFACE_BOOT_V1) ||
+        unified->query_interface(UINT32_MAX))
+        return failure("unified FAT12 descriptor incorrect or overclaims");
     fixture();
     if (api->probe(&io, &vol) != 0 || vol.cluster_count == 0 ||
         vol.cluster_count >= 4085 || vol.cluster_bytes != 512)
