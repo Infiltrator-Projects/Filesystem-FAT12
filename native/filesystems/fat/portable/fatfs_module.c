@@ -8,16 +8,11 @@
 #include "ff.h"
 #include "diskio.h"
 #include "fat12_module.h"
-#include "fat_defrag_abi.h"
-#include "infiltratr/fs/boot_module.h"
-#include "infiltratr/fs/unified_module.h"
+#include "infiltratr/filesystem_module.h"
 
 #if IFS_FATFS_ONLY != 12
-#error "The unified descriptor pilot is owned by FAT12 only"
+#error "The Common filesystem ABI pilot is owned by FAT12 only"
 #endif
-
-extern const IfsBootModuleV1 *IFS_BOOT_CALL infiltrator_filesystem_boot_v1(void);
-
 
 #if defined(IFS_FATFS_ONLY) && IFS_FATFS_ONLY == 12
 #define REQUIRED_FS FS_FAT12
@@ -440,48 +435,98 @@ static const IfsFatfsModuleV4 module_v4={
 __attribute__((visibility("default")))
 const IfsFatfsModuleV4 *infiltrator_filesystem_module_v4(void) {return &module_v4;}
 
-/*
- * The FAT12 pilot exposes one descriptor for every established ABI within
- * these exact SO bytes. Existing V1/V3/V4/defrag/Boot entry points remain
- * unchanged; all consumers may discover them through this single interface.
- * CHECK and REPAIR are deliberately not advertised: these must be implemented
- * and independently validated before Files or Setup may offer them.
- */
-static const void *ifs_fat12_query_interface(uint32_t interface_id)
+
+/* Common/Libraries is the format-neutral ABI authority. This first FAT12
+ * adapter supports read-only detection and EXCLUSIVE REFORMAT of a proven
+ * existing FAT12 volume. Full mounted-file operations and checking remain
+ * pending; do not advertise them merely because the legacy APIs exist.
+ * No host libc or platform-specific filesystem code is imported. */
+static int common_probe(const IfsFsHostIoV1 *host,
+                        uint32_t *detected_variant)
 {
-    switch (interface_id) {
-    case IFS_UNIFIED_INTERFACE_PROBE_V1:
-        return infiltrator_filesystem_module_v1();
-    case IFS_UNIFIED_INTERFACE_FILES_V3:
-        return infiltrator_filesystem_module_v3();
-    case IFS_UNIFIED_INTERFACE_VOLUME_V4:
-        return infiltrator_filesystem_module_v4();
-    case IFS_UNIFIED_INTERFACE_DEFRAG_V1:
-        return infiltrator_filesystem_defrag_v1();
-    case IFS_UNIFIED_INTERFACE_BOOT_V1:
-        return infiltrator_filesystem_boot_v1();
-    default:
-        return 0;
-    }
+    IfsClassicFatIo input;
+    IfsClassicFatVolume geometry;
+    if (!host || host->structure_bytes < sizeof(*host) ||
+        !host->read_at || !detected_variant || host->volume_bytes < 512u ||
+        (host->flags & ~(IFS_FS_IO_READ_ONLY | IFS_FS_IO_EXCLUSIVE)))
+        return IFS_FS_INVALID;
+    input.read_at = host->read_at;
+    input.context = host->context;
+    input.device_bytes = host->volume_bytes;
+    if (infiltrator_filesystem_module_v1()->probe(&input, &geometry) != 0)
+        return IFS_FS_NOT_FOUND;
+    *detected_variant = 12u;
+    return IFS_FS_OK;
+}
+static int common_read(void *context, uint64_t offset,
+                       void *destination, uint32_t bytes)
+{
+    const IfsFsHostIoV1 *host = (const IfsFsHostIoV1 *)context;
+    return host->read_at(host->context, offset, destination, bytes);
+}
+static int common_write(void *context, uint64_t offset,
+                        const void *source, uint32_t bytes)
+{
+    const IfsFsHostIoV1 *host = (const IfsFsHostIoV1 *)context;
+    return host->write_at(host->context, offset, source, bytes);
+}
+static int common_flush(void *context)
+{
+    const IfsFsHostIoV1 *host = (const IfsFsHostIoV1 *)context;
+    return host->flush(host->context);
+}
+static uint32_t common_timestamp(void *context)
+{
+    (void)context;
+    /* Common V1 currently has no timestamp provider; use valid FAT epoch. */
+    return (1u << 21) | (1u << 16);
+}
+static int common_format(const IfsFsHostIoV1 *host, uint32_t variant,
+                         const char *volume_label)
+{
+    IfsClassicFatIo input;
+    IfsClassicFatVolume geometry;
+    IfsFatfsIo io;
+    if (!host || host->structure_bytes < sizeof(*host) ||
+        !host->read_at || host->volume_bytes < 512u ||
+        (host->flags & ~(IFS_FS_IO_READ_ONLY | IFS_FS_IO_EXCLUSIVE)))
+        return IFS_FS_INVALID;
+    if ((host->flags & IFS_FS_IO_READ_ONLY) ||
+        !(host->flags & IFS_FS_IO_EXCLUSIVE) ||
+        !host->write_at || !host->flush)
+        return IFS_FS_ACCESS;
+    if (variant != 12u || (volume_label && volume_label[0]))
+        return IFS_FS_UNSUPPORTED;
+    /* Common V1 does not provide physical/logical sector size for an empty
+     * target. Reformat only a previously validated FAT12 volume: NEVER guess
+     * blank-device geometry, and never access an actively mounted device. */
+    input.read_at = host->read_at;
+    input.context = host->context;
+    input.device_bytes = host->volume_bytes;
+    if (infiltrator_filesystem_module_v1()->probe(&input, &geometry) != 0)
+        return IFS_FS_NOT_FOUND;
+    io.user = (void *)host;
+    io.partition_bytes = host->volume_bytes;
+    io.sector_bytes = geometry.bytes_per_sector;
+    io.read_at = common_read;
+    io.write_at = common_write;
+    io.flush = common_flush;
+    io.fat_timestamp = common_timestamp;
+    return infiltrator_filesystem_module_v4()->format(&io, 0u) == 0 ?
+           IFS_FS_OK : IFS_FS_IO_ERROR;
 }
 __attribute__((used,section(".ifsmeta")))
-static const char ifs_fat12_unified_identity[] =
-    "IFS-MODULE:fat12:unified1";
-static const IfsUnifiedModuleV1 ifs_fat12_unified_descriptor = {
-    IFS_UNIFIED_MODULE_ABI_V1,
-    sizeof(IfsUnifiedModuleV1),
-    "fat12",
-    "FAT12",
-    IFS_UNIFIED_CAP_PROBE |
-    IFS_UNIFIED_CAP_FILE_READ |
-    IFS_UNIFIED_CAP_FILE_WRITE |
-    IFS_UNIFIED_CAP_FORMAT |
-    IFS_UNIFIED_CAP_DEFRAG |
-    IFS_UNIFIED_CAP_BOOT_READ,
-    ifs_fat12_query_interface
+static const char common_identity[] = "IFS-MODULE:fat12:common1";
+static const IfsFsModuleApiV1 common_api = {
+    IFS_FS_COMMON_ABI_V1, sizeof(IfsFsModuleApiV1), "fat12",
+    IFS_FS_CAP_PROBE | IFS_FS_CAP_FORMAT,
+    common_probe,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    common_format,
+    0, 0
 };
 __attribute__((visibility("default")))
-const IfsUnifiedModuleV1 *infiltrator_filesystem_unified_v1(void)
+const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void)
 {
-    return &ifs_fat12_unified_descriptor;
+    return &common_api;
 }
