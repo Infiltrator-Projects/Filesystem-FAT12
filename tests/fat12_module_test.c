@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Independent in-memory FAT12 fixture. No host filesystem or block devices. */
 #include "fat12_module.h"
-#include "../native/include/infiltratr/fs/unified_module.h"
+#include "../src/infiltratr-common/include/infiltratr/filesystem_module.h"
+extern const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void);
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,16 @@ static int read_at(void *ctx, uint64_t offset, void *buf, uint32_t bytes)
     memcpy(buf, image + (size_t)offset, bytes);
     return 0;
 }
+static unsigned common_write_count;
+static int common_write_at(void *ctx, uint64_t offset, const void *buf, uint32_t bytes)
+{
+    (void)ctx;
+    if (offset > sizeof image || bytes > sizeof image - offset) return -1;
+    memcpy(image + (size_t)offset, buf, bytes);
+    ++common_write_count;
+    return 0;
+}
+static int common_flush_at(void *ctx) { (void)ctx; return 0; }
 /* Encode exact packed 12-bit entries, covering both even and odd clusters. */
 static void fat(unsigned cluster, unsigned next)
 {
@@ -101,28 +112,6 @@ int main(void)
         (api->capabilities & IFS_FAT12_CAP_FILE_READ) == 0 ||
         (api->capabilities & IFS_FAT12_CAP_ROOT_FRAGMENT_COUNT) == 0)
         return failure("bad module ABI or capabilities");
-    /* A consumer must be able to discover every FAT12 service through one
-     * module, without searching for per-format .ko or .efi products. */
-    const IfsUnifiedModuleV1 *unified = infiltrator_filesystem_unified_v1();
-    const uint64_t required =
-        IFS_UNIFIED_CAP_PROBE | IFS_UNIFIED_CAP_FILE_READ |
-        IFS_UNIFIED_CAP_FILE_WRITE | IFS_UNIFIED_CAP_FORMAT |
-        IFS_UNIFIED_CAP_DEFRAG | IFS_UNIFIED_CAP_BOOT_READ;
-    if (!unified || unified->abi_version != IFS_UNIFIED_MODULE_ABI_V1 ||
-        unified->structure_bytes != sizeof(*unified) ||
-        strcmp(unified->format_id, "fat12") != 0 ||
-        strcmp(unified->display_name, "FAT12") != 0 ||
-        !unified->query_interface ||
-        (unified->capabilities & required) != required ||
-        (unified->capabilities & (IFS_UNIFIED_CAP_CHECK |
-                                  IFS_UNIFIED_CAP_REPAIR)) != 0 ||
-        unified->query_interface(IFS_UNIFIED_INTERFACE_PROBE_V1) != api ||
-        !unified->query_interface(IFS_UNIFIED_INTERFACE_FILES_V3) ||
-        !unified->query_interface(IFS_UNIFIED_INTERFACE_VOLUME_V4) ||
-        !unified->query_interface(IFS_UNIFIED_INTERFACE_DEFRAG_V1) ||
-        !unified->query_interface(IFS_UNIFIED_INTERFACE_BOOT_V1) ||
-        unified->query_interface(UINT32_MAX))
-        return failure("unified FAT12 descriptor incorrect or overclaims");
     fixture();
     if (api->probe(&io, &vol) != 0 || vol.cluster_count == 0 ||
         vol.cluster_count >= 4085 || vol.cluster_bytes != 512)
@@ -163,6 +152,38 @@ int main(void)
     io.device_bytes = 512;
     if (api->probe(&io, &vol) == 0)
         return failure("truncated image accepted");
+    /* Common's single format-neutral ABI must be the advertised entry point,
+     * not another competing set of per-format capabilities. */
+    const IfsFsModuleApiV1 *common = infiltrator_filesystem_api_v1();
+    IfsFsHostIoV1 host = {
+        sizeof(IfsFsHostIoV1), IFS_FS_IO_READ_ONLY, NULL,
+        sizeof image, read_at, common_write_at, common_flush_at, NULL, NULL
+    };
+    uint32_t variant = 0;
+    fixture();
+    if (!ifs_fs_common_api_valid(common, "fat12") ||
+        common->capabilities != (IFS_FS_CAP_PROBE | IFS_FS_CAP_FORMAT) ||
+        !common->probe || !common->format || common->mount || common->check ||
+        common->recover || common->probe(&host, &variant) != IFS_FS_OK ||
+        variant != 12u)
+        return failure("Common ABI probe or capability declaration");
+    common_write_count = 0u;
+    if (common->format(&host, 12u, NULL) != IFS_FS_ACCESS ||
+        common_write_count != 0u)
+        return failure("read-only Common formatter was not blocked");
+    host.flags = IFS_FS_IO_EXCLUSIVE;
+    if (common->format(&host, 16u, NULL) != IFS_FS_UNSUPPORTED ||
+        common->format(&host, 12u, "UNSUPPORTED-LABEL") != IFS_FS_UNSUPPORTED ||
+        common_write_count != 0u)
+        return failure("foreign variant or unsupported label wrote to media");
+    if (common->format(&host, 12u, NULL) != IFS_FS_OK ||
+        common_write_count == 0u || common->probe(&host, &variant) != IFS_FS_OK ||
+        variant != 12u)
+        return failure("Common format did not produce readable FAT12");
+    host.flags = IFS_FS_IO_READ_ONLY;
+    host.write_at = NULL;
+    if (common->format(&host, 12u, NULL) != IFS_FS_ACCESS)
+        return failure("Common formatter accepted missing exclusive write access");
     puts("FAT12-MODULE-READ-AND-FRAGMENT-PASS");
     return 0;
 }
