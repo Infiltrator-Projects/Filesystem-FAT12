@@ -502,11 +502,25 @@ static int common_format(const IfsFsHostIoV1 *host, uint32_t variant,
     input.read_at = host->read_at;
     input.context = host->context;
     input.device_bytes = host->volume_bytes;
-    if (infiltrator_filesystem_module_v1()->probe(&input, &geometry) != 0)
-        return IFS_FS_NOT_FOUND;
+    /* Existing V1 callers can safely reformat an already identified
+     * FAT12 volume. Only the explicit, host-verified ABI-1 tail can
+     * format blank media, because no sector size may be guessed. */
+    uint32_t sector_bytes=0u;
+    if (host->structure_bytes >= sizeof(IfsFsHostFormatIoV1)) {
+        const IfsFsHostFormatIoV1 *extended =
+            (const IfsFsHostFormatIoV1 *)(const void *)host;
+        sector_bytes=extended->logical_sector_bytes;
+        if (extended->reserved || (sector_bytes!=512u &&
+            sector_bytes!=1024u && sector_bytes!=2048u &&
+            sector_bytes!=4096u)) return IFS_FS_INVALID;
+    } else {
+        if (infiltrator_filesystem_module_v1()->probe(&input, &geometry) != 0)
+            return IFS_FS_NOT_FOUND;
+        sector_bytes=geometry.bytes_per_sector;
+    }
     io.user = (void *)host;
     io.partition_bytes = host->volume_bytes;
-    io.sector_bytes = geometry.bytes_per_sector;
+    io.sector_bytes = sector_bytes;
     io.read_at = common_read;
     io.write_at = common_write;
     io.flush = common_flush;

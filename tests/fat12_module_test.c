@@ -297,6 +297,48 @@ int main(void)
             return failure("mismatched FAT mirrors were not detected");
     }
 
+
+    /* Blank target format must be expressly told its logical sector size.
+     * Verify that invalid geometry and unprivileged writes remain no-ops,
+     * then prove formatted media can be recognised and mounted. */
+    {
+        IfsFsHostFormatIoV1 formatted={0};
+        uint32_t detected=0;
+        void *mounted=NULL;
+        IfsFsVolumeInfoV1 info={0};
+        unsigned before;
+        formatted.host=host;
+        formatted.host.structure_bytes=sizeof formatted;
+        formatted.host.flags=IFS_FS_IO_EXCLUSIVE;
+        formatted.host.write_at=common_write_at;
+        formatted.host.flush=common_flush_at;
+        formatted.logical_sector_bytes=256u;
+        memset(image,0,sizeof image);
+        before=common_write_count;
+        if (common->format(&formatted.host,12u,NULL)!=IFS_FS_INVALID ||
+            common_write_count!=before)
+            return failure("blank format accepted invalid logical sector width");
+        formatted.logical_sector_bytes=512u;
+        formatted.host.flags=IFS_FS_IO_READ_ONLY;
+        if (common->format(&formatted.host,12u,NULL)!=IFS_FS_ACCESS ||
+            common_write_count!=before)
+            return failure("blank format accepted read-only host");
+        formatted.host.flags=IFS_FS_IO_EXCLUSIVE;
+        if (common->probe(&formatted.host,&detected)!=IFS_FS_NOT_FOUND ||
+            common->format(&formatted.host,12u,NULL)!=IFS_FS_OK ||
+            common_write_count==before ||
+            common->probe(&formatted.host,&detected)!=IFS_FS_OK ||
+            detected!=12u)
+            return failure("explicit-sector blank FAT12 formatter");
+        formatted.host.flags=IFS_FS_IO_READ_ONLY;
+        formatted.host.write_at=NULL;
+        info.structure_bytes=sizeof info;
+        if (common->mount(&formatted.host,&mounted,&info)!=IFS_FS_OK ||
+            !mounted || info.variant!=12u ||
+            common->unmount(mounted)!=IFS_FS_OK)
+            return failure("blank FAT12 formatted media could not mount");
+    }
+
     puts("FAT12-MODULE-READ-AND-FRAGMENT-PASS");
     return 0;
 }

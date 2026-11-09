@@ -67,6 +67,18 @@ typedef struct {
     void (*release)(void *, void *);
 } IfsFsHostIoV1;
 
+/* Optional ABI-1 tail for explicit formatting of blank media. No V1 field
+ * moves: legacy readers still see the identical IfsFsHostIoV1 prefix.
+ * The privileged host obtains the logical sector size from the device or
+ * a verified image contract; the filesystem must never guess it. Pass
+ * sizeof(IfsFsHostFormatIoV1) as host.structure_bytes and reserved=0.
+ * An unsupported format may reject the extension without writing. */
+typedef struct {
+    IfsFsHostIoV1 host;
+    uint32_t logical_sector_bytes;
+    uint32_t reserved;
+} IfsFsHostFormatIoV1;
+
 typedef struct {
     uint32_t structure_bytes;
     uint32_t type;
