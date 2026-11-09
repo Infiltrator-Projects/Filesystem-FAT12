@@ -168,7 +168,7 @@ int main(void)
             IFS_FS_CAP_LIST | IFS_FS_CAP_READ | IFS_FS_CAP_WRITE |
             IFS_FS_CAP_CREATE | IFS_FS_CAP_REMOVE | IFS_FS_CAP_RENAME |
             IFS_FS_CAP_TRUNCATE | IFS_FS_CAP_FORMAT | IFS_FS_CAP_CHECK) ||
-        !common->probe || !common->format || !common->mount || common->check ||
+        !common->probe || !common->format || !common->mount || !common->check ||
         common->recover || common->probe(&host, &variant) != IFS_FS_OK ||
         variant != 12u)
         return failure("Common ABI probe or capability declaration");
