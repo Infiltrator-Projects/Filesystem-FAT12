@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Independent in-memory FAT12 fixture. No host filesystem or block devices. */
-#include "fat12_module.h"
-#include "../native/filesystems/fat/portable/fatfs_module.h"
 #include "../src/infiltratr-common/include/infiltratr/filesystem_module.h"
 extern const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void);
 #include <stdint.h>
@@ -43,7 +41,6 @@ static int common_write_at(void *ctx, uint64_t offset, const void *buf, uint32_t
     return 0;
 }
 static int common_flush_at(void *ctx) { (void)ctx; return 0; }
-static uint32_t fat_time(void *ctx) { (void)ctx; return (1u << 21) | (1u << 16); }
 /* Encode exact packed 12-bit entries, covering both even and odd clusters. */
 static void fat(unsigned cluster, unsigned next)
 {
@@ -102,58 +99,6 @@ static int failure(const char *msg)
 }
 int main(void)
 {
-    const IfsFat12Module *api = infiltrator_filesystem_module_v1();
-    IfsFat12Io io = {read_at, NULL, sizeof image};
-    IfsFat12Volume vol;
-    IfsFat12File file;
-    uint32_t fragments;
-    unsigned char data[1200];
-
-    if (!api || api->abi_version != 1 || api->structure_bytes != sizeof(*api) ||
-        strcmp(api->format_id, "fat12") != 0 ||
-        (api->capabilities & IFS_FAT12_CAP_FILE_READ) == 0 ||
-        (api->capabilities & IFS_FAT12_CAP_ROOT_FRAGMENT_COUNT) == 0)
-        return failure("bad module ABI or capabilities");
-    fixture();
-    if (api->probe(&io, &vol) != 0 || vol.cluster_count == 0 ||
-        vol.cluster_count >= 4085 || vol.cluster_bytes != 512)
-        return failure("valid FAT12 image not detected");
-    if (api->root_file(&io, &vol, 0, &file) != 0 ||
-        strcmp(file.name, "HELLO.TXT") != 0 || file.size_bytes != 1200)
-        return failure("root directory missing");
-    if (api->root_file(&io, &vol, 1, &file) != 1)
-        return failure("extra root entry");
-    if (api->root_file(&io, &vol, 0, &file) != 0 ||
-        api->root_file_fragments(&io, &vol, &file, &fragments) != 0 ||
-        fragments != 3u)
-        return failure("fragment count wrong");
-    if (api->read_file(&io, &vol, &file, 0, data, sizeof data) != 0)
-        return failure("read failed");
-    for (unsigned i=0; i<1200; ++i)
-        if (data[i] != (unsigned char)('A' + (int)(i/512u)))
-            return failure("noncontiguous chain was read incorrectly");
-    if (api->read_file(&io, &vol, &file, 1199u, data, 2u) == 0)
-        return failure("out-of-bounds file read accepted");
-
-    fat(5, 0x0fffu);
-    if (api->root_file_fragments(&io, &vol, &file, &fragments) == 0)
-        return failure("short/corrupt chain accepted");
-    fixture();
-    image[13] = 0u; /* invalid sectors per cluster */
-    if (api->probe(&io, &vol) == 0)
-        return failure("invalid sectors-per-cluster accepted");
-    fixture();
-    image[SECTOR+2u] = 0; /* corrupt FAT12 reserved packed entries */
-    if (api->probe(&io, &vol) == 0)
-        return failure("invalid FAT12 reserved entries accepted");
-    fixture();
-    image[510] = 0;
-    if (api->probe(&io, &vol) == 0)
-        return failure("broken signature accepted");
-    fixture();
-    io.device_bytes = 512;
-    if (api->probe(&io, &vol) == 0)
-        return failure("truncated image accepted");
     /* Common's single format-neutral ABI must be the advertised entry point,
      * not another competing set of per-format capabilities. */
     const IfsFsModuleApiV1 *common = infiltrator_filesystem_api_v1();
@@ -191,28 +136,29 @@ int main(void)
     if (common->format(&host, 12u, NULL) != IFS_FS_ACCESS)
         return failure("Common formatter accepted missing exclusive write access");
 
-    /* Exercise the Common API against bytes written by the existing V3
-     * engine, not a separate formatter or duplicated FAT implementation. */
+    /* Common creates and reopens its own on-disk fixture; no V3 entry point. */
     {
-        const IfsFatfsModuleV3 *legacy=infiltrator_filesystem_module_v3();
-        IfsFatfsIo disk={NULL,sizeof image,SECTOR,read_at,common_write_at,
-                         common_flush_at,fat_time};
         const char payload[]="COMMON-FAT12-PAYLOAD";
         char name[768];
         char bytes[sizeof payload];
         IfsFsEntryV1 entry={sizeof(IfsFsEntryV1),0,0,0,0,name,sizeof name};
         IfsFsVolumeInfoV1 info={0};
-        void *mounted=NULL, *second=NULL, *stale=NULL;
+        void *mounted=NULL, *second=NULL, *stale=NULL, *seed=NULL;
+        IfsFsVolumeInfoV1 seed_info={0};
         unsigned writes;
         info.structure_bytes=sizeof info;
         host.flags=IFS_FS_IO_EXCLUSIVE;
         host.write_at=common_write_at;
         host.flush=common_flush_at;
-        if (!legacy || legacy->mount(&disk)!=0 ||
-            legacy->create("0:/COMMON.TXT")!=0 ||
-            legacy->write("0:/COMMON.TXT",0,payload,sizeof payload-1u)!=0 ||
-            legacy->unmount()!=0)
-            return failure("legacy V3 fixture for Common mount");
+        host.flags=IFS_FS_IO_EXCLUSIVE;
+        host.write_at=common_write_at;
+        host.flush=common_flush_at;
+        seed_info.structure_bytes=sizeof seed_info;
+        if (common->mount(&host,&seed,&seed_info)!=IFS_FS_OK ||
+            common->create(seed,"/COMMON.TXT",IFS_FS_ENTRY_FILE)!=IFS_FS_OK ||
+            common->write(seed,"/COMMON.TXT",0,payload,sizeof payload-1u)!=IFS_FS_OK ||
+            common->unmount(seed)!=IFS_FS_OK)
+            return failure("Common fixture create/write/unmount");
         host.flags=IFS_FS_IO_READ_ONLY;
         host.write_at=NULL;
         host.flush=NULL;
