@@ -201,7 +201,7 @@ int main(void)
         char bytes[sizeof payload];
         IfsFsEntryV1 entry={sizeof(IfsFsEntryV1),0,0,0,0,name,sizeof name};
         IfsFsVolumeInfoV1 info={0};
-        void *mounted=NULL, *second=NULL;
+        void *mounted=NULL, *second=NULL, *stale=NULL;
         unsigned writes;
         info.structure_bytes=sizeof info;
         host.flags=IFS_FS_IO_EXCLUSIVE;
@@ -236,11 +236,17 @@ int main(void)
             common->read(mounted,"0:/COMMON.TXT",0,bytes,1)!=IFS_FS_INVALID ||
             common->unmount(mounted)!=IFS_FS_OK)
             return failure("Common read-only mount/stat/list/read and rejection");
+        stale=mounted; /* The first mount has ended; retain its token. */
         host.flags=IFS_FS_IO_EXCLUSIVE;
         host.write_at=common_write_at;
         host.flush=common_flush_at;
         info.structure_bytes=sizeof info;
         if (common->mount(&host,&mounted,&info)!=IFS_FS_OK ||
+            mounted==stale ||
+            common->stat(stale,"/COMMON.TXT",&entry)!=IFS_FS_INVALID ||
+            common->read(stale,"/COMMON.TXT",0,bytes,1)!=IFS_FS_INVALID ||
+            common->create(stale,"/WRONG.TXT",IFS_FS_ENTRY_FILE)!=IFS_FS_INVALID ||
+            common->unmount(stale)!=IFS_FS_INVALID ||
             common->read(mounted,"/COMMON.TXT",UINT64_MAX,bytes,1)!=IFS_FS_UNSUPPORTED ||
             common->create(mounted,"/DIR",IFS_FS_ENTRY_DIRECTORY)!=IFS_FS_OK ||
             common->create(mounted,"/DIR/FILE.TXT",IFS_FS_ENTRY_FILE)!=IFS_FS_OK ||

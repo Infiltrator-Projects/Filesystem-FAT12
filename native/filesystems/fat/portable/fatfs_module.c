@@ -521,6 +521,8 @@ static int common_format(const IfsFsHostIoV1 *host, uint32_t variant,
  * the caller's descriptor may be stack-allocated. No secondary FAT parser. */
 static struct {
     IfsFsHostIoV1 host;
+    uintptr_t serial;       /* Never recycle opaque Common mount handles. */
+    uintptr_t active_handle;
     int mounted;
 } common_session;
 
@@ -550,7 +552,8 @@ static int common_guarded_flush(void *context)
 }
 static int common_session_valid(void *context)
 {
-    return context == (void *)&common_session && common_session.mounted;
+    return common_session.mounted && common_session.active_handle != 0u &&
+           (uintptr_t)context == common_session.active_handle;
 }
 /* Enforce volume-relative absolute paths, without traversal or FatFs drive
  * prefixes. Reject malformed and overflowing names before filesystem I/O. */
@@ -590,7 +593,8 @@ static int common_mount(const IfsFsHostIoV1 *host, void **context,
         (host->flags & ~(IFS_FS_IO_READ_ONLY | IFS_FS_IO_EXCLUSIVE)))
         return IFS_FS_INVALID;
     *context=0;
-    if (common_session.mounted || selected || bound) return IFS_FS_BUSY;
+    if (common_session.mounted || selected || bound ||
+        common_session.serial == UINTPTR_MAX) return IFS_FS_BUSY;
     input.read_at=host->read_at;
     input.context=host->context;
     input.device_bytes=host->volume_bytes;
@@ -610,13 +614,17 @@ static int common_mount(const IfsFsHostIoV1 *host, void **context,
         (void)infiltrator_filesystem_module_v3()->unmount();
         return IFS_FS_IO_ERROR;
     }
+    common_session.active_handle=++common_session.serial;
     common_session.mounted=1;
     info->variant=12u;
     info->max_name_bytes=765u; /* FAT LFN: 255 UTF-16 units, max 3 UTF-8 bytes each. */
     info->block_bytes=geometry.cluster_bytes;
     info->total_bytes=total;
     info->free_bytes=available;
-    *context=&common_session;
+    /* Opaque non-dereferenceable generation token. A stale caller must
+     * never gain access to a subsequent volume, even if it remounts in the
+     * same shared object. The single-session API remains non-concurrent. */
+    *context=(void *)common_session.active_handle;
     return IFS_FS_OK;
 }
 static int common_unmount(void *context)
@@ -625,6 +633,7 @@ static int common_unmount(void *context)
     if (infiltrator_filesystem_module_v3()->unmount()!=0)
         return IFS_FS_IO_ERROR;
     common_session.mounted=0;
+    common_session.active_handle=0u;
     return IFS_FS_OK;
 }
 static int common_entry(IfsFsEntryV1 *out, const IfsFatfsEntry *legacy,
