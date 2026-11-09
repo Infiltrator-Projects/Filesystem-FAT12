@@ -65,6 +65,12 @@ typedef struct {
                                const IfsClassicFatFile *, uint32_t *fragments);
 } IfsClassicFatModule;
 
+/* Read-only FAT allocation and namespace integrity test. A zero return
+ * means scanning succeeded; errors_out may still report corruption. */
+int ifs_classic_fat_check(const IfsClassicFatIo *io,
+                          const IfsClassicFatVolume *volume,
+                          uint32_t *errors_out);
+
 /* Exported discovery symbol. Not a Linux .ko, EFI image, or full defrag ABI. */
 const IfsClassicFatModule *infiltrator_filesystem_module_v1(void);
 #endif

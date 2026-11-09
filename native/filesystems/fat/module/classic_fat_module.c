@@ -138,6 +138,124 @@ static int fat_entry(const IfsClassicFatIo *io, const IfsClassicFatVolume *v,
 #endif
     return 0;
 }
+
+/* Non-destructive FAT12 integrity check. Reuses this module's validated
+ * BPB, bounded I/O and packed 12-bit entry parser. No separate engine.
+ * No recursion, heap allocation, automatic reclamation or media writes. */
+#define FAT12_CHECK_SLOTS 4086u
+static int fsck_claim(const IfsClassicFatIo *io, const IfsClassicFatVolume *v,
+                      uint8_t *owners, uint32_t first, uint32_t wanted,
+                      int directory, uint32_t *errors)
+{
+    uint32_t c=first, max=v->cluster_count+1u;
+    if (!first && !wanted && !directory) return 0;
+    if (!first || (!directory && !wanted)) {++*errors;return 1;}
+    for(uint32_t n=0;n<v->cluster_count;++n) {
+        uint16_t next;
+        if(c<2u || c>max || owners[c] ||
+           (!directory && n>=wanted)) {++*errors;return 1;}
+        owners[c]=1u;
+        if(fat_entry(io,v,c,&next)!=0) return -1;
+        if(next>=0xff8u) {
+            if(!directory && n+1u!=wanted) ++*errors;
+            return 0;
+        }
+        if(next<2u || next>max || next>=0xff0u) {++*errors;return 1;}
+        c=next;
+    }
+    ++*errors;
+    return 1;
+}
+static int fsck_record(const IfsClassicFatIo *io,const IfsClassicFatVolume *v,
+                       const uint8_t e[32],uint8_t *owners,
+                       uint16_t *queue,uint32_t *count,uint32_t *errors)
+{
+    uint32_t first=le16(e+26),size=le32(e+28);
+    int is_dir=(e[11]&0x10u)!=0;
+    if(e[0]==0xe5u || e[11]==0x0fu || (e[11]&0x08u)) return 0;
+    if(is_dir && e[0]=='.' && (e[1]==' ' || e[1]=='.')) return 0;
+    if(le16(e+20)!=0u || (is_dir && size!=0u)) ++*errors;
+    if(is_dir) {
+        if(first<2u || first>v->cluster_count+1u ||
+           *count>=v->cluster_count) {++*errors;return 1;}
+        queue[(*count)++]=(uint16_t)first;
+        return 0;
+    }
+    uint32_t wanted=size/v->cluster_bytes+(size%v->cluster_bytes!=0u);
+    if(wanted>v->cluster_count) {++*errors;return 1;}
+    return fsck_claim(io,v,owners,first,wanted,0,errors);
+}
+int ifs_classic_fat_check(const IfsClassicFatIo *io,
+                          const IfsClassicFatVolume *v,uint32_t *errors_out)
+{
+#if IFS_CLASSIC_FAT_BITS != 12
+    (void)io;(void)v;(void)errors_out;
+    return -1;
+#else
+    uint8_t owners[FAT12_CHECK_SLOTS]={0},a[128],b[128],e[32];
+    uint16_t queue[FAT12_CHECK_SLOTS];
+    uint32_t errors=0,count=0,head=0;
+    uint32_t max=v?v->cluster_count+1u:0u;
+    if(!io || !v || !errors_out || !io->read_at || max<2u ||
+       max>=FAT12_CHECK_SLOTS || !v->fat_copies ||
+       v->fat_copies>4u || !v->cluster_bytes ||
+       !v->bytes_per_sector || v->volume_bytes>io->device_bytes)
+        return -1;
+    *errors_out=0;
+    const uint64_t fat_bytes=(uint64_t)v->sectors_per_fat*v->bytes_per_sector;
+    const uint64_t used_bytes=(uint64_t)max+max/2u+2u;
+    if(used_bytes>fat_bytes) return -1;
+    for(uint32_t copy=1u;copy<v->fat_copies;++copy) {
+        for(uint64_t off=0u;off<used_bytes;off+=sizeof a) {
+            uint32_t n=(uint32_t)(used_bytes-off<sizeof a ?
+                                   used_bytes-off:sizeof a);
+            if(bounded_read(io,v->fat_offset+off,a,n)!=0 ||
+               bounded_read(io,v->fat_offset+(uint64_t)copy*fat_bytes+off,b,n)!=0)
+                return -1;
+            for(uint32_t j=0;j<n;++j) if(a[j]!=b[j]) {++errors;break;}
+        }
+    }
+    for(uint32_t n=0;n<v->root_entries;++n) {
+        if(bounded_read(io,v->root_offset+(uint64_t)n*32u,e,32u)!=0) return -1;
+        if(!e[0]) break;
+        if(fsck_record(io,v,e,owners,queue,&count,&errors)<0) return -1;
+    }
+    while(head<count) {
+        uint32_t c=queue[head++],start=c;
+        int end=0;
+        int result=fsck_claim(io,v,owners,c,0u,1,&errors);
+        if(result<0) return -1;
+        if(result!=0) continue;
+        for(uint32_t step=0;step<v->cluster_count && !end;++step) {
+            for(uint32_t off=0;off<v->cluster_bytes;off+=32u) {
+                uint64_t at=v->data_offset+(uint64_t)(c-2u)*v->cluster_bytes+off;
+                if(at+32u>v->volume_bytes ||
+                   bounded_read(io,at,e,32u)!=0) return -1;
+                if(!e[0]) {end=1;break;}
+                if(fsck_record(io,v,e,owners,queue,&count,&errors)<0) return -1;
+            }
+            if(!end) {
+                uint16_t next;
+                if(fat_entry(io,v,c,&next)!=0) return -1;
+                if(next>=0xff8u) break;
+                if(next<2u || next>max || next>=0xff0u) {++errors;break;}
+                c=next;
+            }
+        }
+        (void)start;
+    }
+    for(uint32_t cluster=2u;cluster<=max;++cluster) {
+        uint16_t next;
+        if(fat_entry(io,v,cluster,&next)!=0) return -1;
+        if(next!=0u && next!=0xff7u &&
+           !(next>=0xff0u && next<=0xff6u) && !owners[cluster])
+            ++errors;
+    }
+    *errors_out=errors;
+    return 0;
+#endif
+}
+
 static int classic_fat_root_file(const IfsClassicFatIo *io, const IfsClassicFatVolume *v,
                            uint32_t nth, IfsClassicFatFile *file)
 {
