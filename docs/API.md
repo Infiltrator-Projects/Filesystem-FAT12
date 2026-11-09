@@ -36,3 +36,18 @@ For FAT12 formatting, allocation-unit selection trials are *non-destructive* and
 bounded, probing FAT12's strict cluster-count threshold before any actual media
 write. The engine can choose 64 KiB clusters for a 255 MiB FAT12 partition
 without silently formatting it as FAT16. The 255 MiB image is tested in CI.
+
+## Canonical Linux VFS host
+
+The `ifs-fuse-host` executable under `/System/Commands` loads the one
+`FAT12.so` Common API and translates Linux FUSE3 file operations. This
+is a format-neutral bridge, not a second driver. Each mount runs its own
+foreground process and its own single-volume SO session, allowing multiple
+volumes to be independently hosted. Read-only regular-file images and block
+devices are supported; explicit write mode is **regular-file images only**.
+
+`--self-test` formats only a named disposable image and qualifies the
+canonical API against FUSE callback mapping. Normal mounts do not format.
+Actual kernel /dev/fuse runtime operation, multi-user permissions,
+dynamic statfs, writable physical media and the eventual direct kernel
+SO loader remain unqualified.

@@ -23,7 +23,10 @@ with tempfile.TemporaryDirectory(prefix="filesystem-package-check-") as temporar
     subprocess.run(["dpkg-deb", "-x", str(args.package), str(root)], check=True)
     module = root / "System/Filesystems" / build.NAME
     manual = root / "System/Resources/Documentation" / (build.REPO + ".pdf")
-    expected = {module, manual}
+    host = root / "System/Commands/ifs-fuse-host"
+    expected = {module, manual, host}
+    assert host.is_file() and (host.stat().st_mode & 0o111)
+    assert fields["X-Infiltrator-VFS-Host-SHA256"] == hashlib.sha256(host.read_bytes()).hexdigest()
     assert not any(p.is_dir() for p in manual.parent.iterdir())
     build.inspect(module)
     assert manual.read_bytes().startswith(b"%PDF-")
