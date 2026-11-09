@@ -287,14 +287,33 @@ static int find_parent(void *data,const char *name,const struct stat *s,
     if(!strcmp(name,".."))*(int *)data=1;
     return 0;
 }
+/* The destructive diagnostic accepts only a wholly empty regular-file image.
+ * Scan every byte, not merely the BPB/signatures: a sparse or hidden payload
+ * must never be destroyed by mistaking a populated image for disposable media.
+ * The acquired descriptor is exclusively locked by init_volume. */
+static int image_is_empty(int fd,uint64_t bytes) {
+    unsigned char data[65536];
+    for(uint64_t at=0;at<bytes;) {
+        const uint32_t n=(uint32_t)((bytes-at)<sizeof data?
+            (bytes-at):sizeof data);
+        if(pread(fd,data,n,(off_t)at)!=(ssize_t)n)return 0;
+        for(uint32_t i=0;i<n;++i)if(data[i]!=0u)return 0;
+        at+=n;
+    }
+    return 1;
+}
 static int selftest(const char *module,const char *image) {
     struct stat st;
     if(lstat(image,&st)!=0 || !S_ISREG(st.st_mode) ||
        st.st_size<1024*1024)return 2;
     int rc=init_volume(module,image,1,0);
     if(rc)goto failure;
-    /* Only this explicitly named test command is permitted to format a
-     * disposable image. Normal mounts never format anything. */
+    if(!image_is_empty(v.fd,v.bytes)) {
+        fputs("Refusing destructive self-test: image contains data or cannot be fully verified empty\n",stderr);
+        shutdown_volume();return 2;
+    }
+    /* Only an exclusively opened, byte-for-byte empty regular image
+     * may be formatted by the explicit diagnostic. Normal mounts never format. */
     IfsFsHostFormatIoV1 ext={0};
     ext.host=v.io;ext.host.structure_bytes=sizeof ext;
     ext.logical_sector_bytes=512u;

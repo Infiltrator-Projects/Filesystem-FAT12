@@ -56,3 +56,13 @@ The FUSE host CI additionally attempts a real mounted Linux VFS create,
 read, rename, truncate and remove cycle when the runner exposes /dev/fuse;
 when the device is absent, this test records the runtime mount as unqualified
 rather than treating the skipped mount as evidence of success.
+
+### Destructive fixture admission
+
+The explicit FUSE host `--self-test` command is intentionally destructive,
+but now requires an exclusively locked regular file whose **entire contents
+are zero** before it invokes `FAT12.so` formatting. An existing filesystem,
+a nonzero payload anywhere within the image, or a failed read is rejected
+before any write. CI verifies that a second attempted self-test does not
+alter a previously formatted image, byte for byte. Normal mount operations
+continue to have no formatting path.

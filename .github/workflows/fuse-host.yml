@@ -36,6 +36,15 @@ jobs:
             image="$RUNNER_TEMP/fuse-$bytes.img"
             truncate -s "$bytes" "$image"
             build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$image"
+            # A second destructive test on this populated image MUST fail
+            # without changing even one byte.
+            before=$(sha256sum "$image" | cut -d' ' -f1)
+            if build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$image"; then
+              echo "Destructive self-test accepted a populated volume" >&2
+              exit 1
+            fi
+            after=$(sha256sum "$image" | cut -d' ' -f1)
+            test "$before" = "$after"
             fsck.fat -n -v "$image"
             mdir -i "$image" ::
           done
