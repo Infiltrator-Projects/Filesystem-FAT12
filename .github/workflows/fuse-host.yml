@@ -1,0 +1,45 @@
+name: Qualify native FAT12.so FUSE/VFS host
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native/host/filesystem_fuse_host.c'
+      - '.github/workflows/fuse-host.yml'
+      - 'native/filesystems/fat/portable/**'
+      - 'native/filesystems/fat/module/**'
+      - 'standalone/build.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fuse-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Native C build and independent validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libfuse3-dev dosfstools mtools
+      - name: Qualify authoritative SO
+        run: make check
+      - name: Compile native VFS host
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
+            -I src/infiltratr-common/include native/host/filesystem_fuse_host.c \
+            $(pkg-config --cflags --libs fuse3) -ldl -o build/ifs-fuse-host
+          build/ifs-fuse-host --help
+      - name: Check callbacks and independently verify FAT allocation integrity
+        run: |
+          set -euo pipefail
+          for bytes in 1474560 267386880; do
+            image="$RUNNER_TEMP/fuse-$bytes.img"
+            truncate -s "$bytes" "$image"
+            build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$image"
+            fsck.fat -n -v "$image"
+            mdir -i "$image" ::
+          done
+      - name: Record qualification boundary
+        run: |
+          echo "Canonical .so and FUSE operation callbacks validated on disposable images."
+          echo "Actual kernel /dev/fuse mounting and physical power-loss tests are separate outstanding gates."
