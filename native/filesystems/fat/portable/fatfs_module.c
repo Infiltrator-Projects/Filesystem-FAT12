@@ -514,8 +514,6 @@ static int common_format(const IfsFsHostIoV1 *host, uint32_t variant,
     return infiltrator_filesystem_module_v4()->format(&io, 0u) == 0 ?
            IFS_FS_OK : IFS_FS_IO_ERROR;
 }
-__attribute__((used,section(".ifsmeta")))
-
 /* A single Common V1 session delegates to the existing V3/V4 FatFs engine.
  * The legacy implementation binds one media image per loaded SO, so rejecting
  * concurrent mounts is essential: sharing its global FATFS state would risk
@@ -753,6 +751,7 @@ static int common_truncate(void *context, const char *path, uint64_t length)
            IFS_FS_OK : IFS_FS_IO_ERROR;
 }
 
+__attribute__((used,section(".ifsmeta")))
 static const char common_identity[] = "IFS-MODULE:fat12:common1";
 static const IfsFsModuleApiV1 common_api = {
     IFS_FS_COMMON_ABI_V1, sizeof(IfsFsModuleApiV1), "fat12",
