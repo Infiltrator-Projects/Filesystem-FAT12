@@ -15,7 +15,7 @@ BASE = ROOT / "native/filesystems/fat"
 DEF = BASE / "defrag"
 MOD = BASE / "module"
 PORT = BASE / "portable"
-SOURCES = [MOD / f"fat{WIDTH}_module.c"] + [
+SOURCES = [MOD / "classic_fat_module.c"] + [
     PORT / name for name in ("fatfs_module.c", "fatfs_boot.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
 ] + [DEF / name for name in ("writer.c", "fat_analysis.c", "fat_directory.c",
     "fat_relayout.c", "fat_io.c", "fat_journal.c", "fat_relocation.c",
@@ -85,7 +85,7 @@ def build(profile, module):
              "-fno-tree-loop-distribute-patterns", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=0",
              "-ffreestanding", "-fvisibility=hidden", "-D_GNU_SOURCE",
              "-D_FILE_OFFSET_BITS=64", f"-DIFS_FATFS_ONLY={WIDTH}",
-             f"-DIFS_FAT_DEFRAG_BITS={WIDTH}"]
+             f"-DIFS_FAT_DEFRAG_BITS={WIDTH}", f"-DIFS_CLASSIC_FAT_BITS={WIDTH}"]
     if profile == "portable":
         flags += ["-O2", "-march=x86-64", "-mtune=generic"]
     else:
@@ -181,6 +181,7 @@ def embedded_source_files():
 
 def cleanup_test_artifacts(module):
     (module.parent / f"fat{WIDTH}-module-test").unlink(missing_ok=True)
+    (module.parent / f"fat{WIDTH}-common-format-test").unlink(missing_ok=True)
 
 def release_source_files():
     if (ROOT / ".git").exists():

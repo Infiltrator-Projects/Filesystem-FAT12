@@ -14,6 +14,22 @@ The end user must **not** have to manage `fat12.ko` and `FAT12.efi` as two addit
 
 **Migration gates:** prove one trusted complete read/write/format/rename/delete/recovery ABI; prove Defragmenter calls this very module; implement BOOT loading and real OVMF/kernel-image access from the same file; implement a kernel bridge for mount/read/write/remount/root bootstrap; verify host ABI, secure boot, staging a byte-identical module on firmware-readable media, rollback, and physical test media before calling FAT12 complete. Do not delete functional `.ko`/`.efi` paths until replacements pass independent equivalence tests.
 
-## FAT12-only pilot status (9 November 2026)
+## Canonical FAT12 API implementation (9 November 2026)
 
-The pilot has begun inside `FAT12.so` with the Common/Libraries `infiltrator_filesystem_api_v1` interface. It provides a format-neutral probe, single-session mount, stat/list/read, exclusive-guarded create/write/rename/remove/truncate, and a constrained reformat adapter to the **same** FAT12 V3/V4 implementation; the original FAT12 interfaces remain available. The Common bridge refuses simultaneous mounts, rejects drive-prefix and parent-traversal paths, and explicitly blocks writes on read-only mounts. The one installed module remains `/System/Filesystems/FAT12.so`. Common V1 read-only fsck now checks allocation graphs and mirrored FAT tables, and explicit-sector formatting can initialise blank FAT12 images without guessing geometry. Verified secondary-FAT mirror repair is now available through the Common ABI under exclusive access. General fsck repair, native Files format integration qualification, multi-volume/re-entrant operation, and kernel execution of the SO remain **not yet complete**. Existing C in-memory FAT12 tests cover the Common mount and file-operation bridge, but this does not yet qualify physical media or generic consumer integration. The existing Linux `.ko` compatibility route must remain untouched until generic kernel loading, mount/root qualification and rollback succeed.
+The historical FAT12 filesystem tables V1/V3/V4 have been removed, not
+aliased or shimmed. The **single canonical filesystem API** is
+`infiltrator_filesystem_api_v1`. Common now dispatches directly to the
+one FatFs read/write/format engine. The old duplicate 8.3 directory/file
+reader has been deleted. The small independent integrity scanner remains
+for FAT chain validation and secondary FAT mirror recovery, not to serve
+another independent FAT file reader.
+
+Current Boot and Defragmenter **host-specific interfaces** remain separate
+entry points inside the same `FAT12.so`; they are not legacy FAT12 APIs.
+One active volume per process and the existing I/O-safety limitations remain.
+
+This code is only a release after GitHub CI qualifies the exact source and
+publishes version 0.1.20. Historic 0.1.19 installations do not change
+automatically. On-device qualification of this revised binary, generic
+kernel execution of the SO, multiple-volume sessions and general repair
+are still to be demonstrated.

@@ -1,34 +1,33 @@
-# Filesystem-FAT12 ABI and consumer contract
+# FAT12 single authoritative filesystem API
 
-**One-driver endpoint:** [FAT12.so is the filesystem driver for applications, BOOT and the future kernel](ONE_MODULE_END_STATE.md). The exported Linux userspace ABI is current; a trusted freestanding/kernel-compatible shared execution ABI still requires design and runtime proof. The `.ko`/`.efi` code described below is transitional, not separate final filesystem products.
+The only public **filesystem** entry point in `/System/Filesystems/FAT12.so` is
+`infiltrator_filesystem_api_v1`, defined by the Common/Libraries header
+`infiltratr/filesystem_module.h`. The “v1” names the **current canonical ABI
+revision**, not support for previous FAT12 implementations. All FAT12
+operations—probe, mount, stat/list, create, read, write, rename, truncate,
+remove, format, check and verified FAT mirror recovery—are exposed through
+this single table. **The V1/V3/V4 FAT12 legacy tables and binary exports
+are removed**, including their public headers.
 
-## Shipped shared object
+`infiltrator_filesystem_boot_v1` is a separate purpose-specific read-only
+Boot host contract. `infiltrator_filesystem_defrag_v1` is a separately
+audited Defragmenter host contract. Neither is a historical FAT12
+compatibility interface; both reside within this same shared-object file.
 
-Filename: `FAT12.so` under `/System/Filesystems`. Architecture: x86-64 ELF shared object. The independent module must export:
+The production read/write/format engine is the single FatFs implementation.
+The Common adapter calls its internal operations directly. The bounded
+FAT12 geometry and FAT mirror scanner remains solely for independent
+consistency validation and restricted secondary FAT repair; the previous
+8.3 directory/file reader and its export have been deleted.
 
-- `infiltrator_filesystem_module_v1`: format-specific read and fragment analysis.
-- `infiltrator_filesystem_module_v3`: portable writable filesystem and file/directory operations.
-- `infiltrator_filesystem_module_v4`: formatting, attributes, timestamps and free-space reporting.
-- `infiltrator_filesystem_defrag_v1`: relocation, journal and crash recovery, invoked in a dedicated Defragmenter child-process host.
+The module allows only **one active mount per process** and operations must
+be serialised. Mutations require host-verified exclusive media ownership.
+Blank-device formatting requires an explicitly verified logical sector size.
+Formatting is not atomic on failure; mirror repair requires a valid
+primary FAT and never repairs arbitrary orphaned clusters or cross-links.
 
-The `.ifsmeta` identity must contain `IFS-MODULE:fat12:1`, `IFS-MODULE:fat12:3` and `IFS-MODULE:fat12:4`. A caller must check ABI versions, structure lengths, the actual detected FAT width and function pointers, not merely the filename. The defrag ABI host must supply all function pointers defined in `native/filesystems/fat/defrag/fat_defrag_abi.h`. The child-process lifetime must keep the module loaded for cleanup handlers.
+Generic kernel VFS execution, simultaneous volume sessions and complete
+power-failure recovery are independent **unfinished** engineering goals.
 
-## Constraints
-
-The portable API supports one active volume per module, requires serialized access and exclusive device ownership. Formatting is destructive and not atomic on write failure. On full media or interrupted allocation, partial extension may occur. Format-identity checks and independent readback are required. The module's own source and documented on-disk contracts are authoritative; a GUI geometry guess does not authorise mutation.
-
-## Transitional platform adapters (not the end state)
-
-`fat12.ko` is kernel-version dependent and relies on a compatible Linux FAT core. `FAT12.efi` requires EDK2 and firmware qualification. Neither is treated as the same ABI as this shared object and neither is installed by the independent initial Debian package.
-
-## Common V1 pilot (9 November 2026)
-
-The source now additionally exports `infiltrator_filesystem_api_v1()` from the **existing** Common/Libraries `include/infiltratr/filesystem_module.h` contract. FAT12 carries an exact source snapshot of that freestanding header (Common `main` commit `a99ef676b0e43c7e645c81756e3fd38be0a54406`, header blob `20682324e93982b672ab1c53b04a95d8b04836ff`) until the Common dependency can be pinned. The additive explicit-sector host tail is shared with Common/Libraries `main` commit `0e53216d82d06b4c07bedd156664151e2ae14b83` (header blob `ec351331c5247cb944402a16ec96230a7adb6ff6`). This is interface metadata/host adaptation, not a copy of a filesystem engine.
-
-Common V1 advertises probe, mount, directory list, stat, read, guarded write/create/remove/rename/truncate and format. The **existing FAT12 V1/V3/V4 implementation** owns all filesystem operations; the Common interface only adapts the host callbacks, volumes, paths and status values. The Common mount supports one live volume per module instance, with read-only callbacks on read-only media and exclusive access required for any mutation. Generation-stamped opaque handles reject stale callers after a remount, avoiding accidental access to a different partition. Host callbacks remain valid until unmount.
-
-Common formatting invokes the existing V4 formatter only when the caller declares verified exclusive access, provides read/write/flush callbacks, selects FAT12 (variant 12), leaves the label empty and supplies a pre-existing, independently recognised FAT12 volume. Its BPB supplies the logical sector size. **Blank-media formatting is now supported through the optional `IfsFsHostFormatIoV1` extension**, whose host must supply a verified 512/1024/2048/4096-byte logical sector size, exclusive write access and zero reserved flags. Existing V1 callers still reformat only recognised FAT12 volumes. The same V4 format engine executes both routes, validates FAT12 geometry before the first write, and rejects unsupported sector sizes without changing media. Formatting remains destructive and non-atomic.
-
-Common V1 advertises a non-destructive FAT12 allocation and directory integrity check. It reuses the existing validated V1 geometry and packed FAT-entry reader, scans reachable files/directories without recursion or allocation and reports cross-links, bad chains, orphaned clusters and mismatched FAT copies. A successfully completed scan returns `IFS_FS_OK` and an error count; I/O failures return `IFS_FS_IO_ERROR`. It currently requires a successful mount, so severely damaged media may need an offline checker. **Common V1 now advertises narrowly scoped secondary FAT-mirror repair**, available only with host-verified exclusive writes when the primary FAT and all reachable allocations pass the read-only integrity scanner. The repair copies the verified first FAT to redundant secondary tables in bounded chunks, flushes and verifies the result. It never modifies the first FAT, file data, directory records, or attempts to reclaim orphaned allocations. A failed/interrupted copy can be retried; repair of non-mirror corruption remains unsupported. Defragmentation still uses its separate ABI. Full FAT12 V3/V4, Defragmenter and Boot interfaces remain available through their established entry points. Files right-click volume formatting, generic kernel SO loading, kernel VFS support, simultaneous volume sessions and physical media qualification are still pending. Do not present this as a completed all-consumer migration.
-
-Defragmentation has its separately versioned host ABI; there is no generic defrag interface in Common V1 yet. Files right-click actions, generic kernel SO loading, kernel VFS support and physical media qualification are still pending. Do not present this as a completed all-consumer migration.
+Consumers must load the Common filesystem export; no old V1/V3/V4
+filesystem lookup or compatibility fallback is permitted.

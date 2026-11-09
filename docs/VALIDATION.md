@@ -6,7 +6,7 @@
 
 1. Source copied: import hash, local source files and preserved notices, but NO functional qualification.
 2. Build: native compiler produces an ELF DYN `FAT12.so` with no unexpected dynamic dependencies.
-3. ABI: correct width metadata, V1/V3/V4, Defragmenter and Boot V1 entry points, validated IFSBOOT1 manifest, no substitution by another format.
+3. ABI: correct width metadata, canonical Common filesystem ABI, Defragmenter and Boot entry points, validated IFSBOOT1 manifest, no substitution by another format.
 4. Fixture: current `tests/fat12_module_test.c` runs against the exact standalone shared object on an in-memory volume.
 5. Integration: Defragmenter's versioned child-worker maps, relocates and recovers disposable independently formatted FAT images, including interrupted-journal stages and independent post-verification.
 6. Packaging: inspect exact owned paths in the Debian archive; install the native `.run`, verify native package version, BUILD-INFO and module SHA-256, and ensure the other format remains unchanged.

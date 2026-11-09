@@ -328,6 +328,6 @@ int main(void)
             return failure("safe FAT12 secondary mirror repair failed");
     }
 
-    puts("FAT12-MODULE-READ-AND-FRAGMENT-PASS");
+    puts("FAT12-COMMON-API-CHECK-AND-RECOVER-PASS");
     return 0;
 }
