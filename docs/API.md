@@ -51,3 +51,8 @@ canonical API against FUSE callback mapping. Normal mounts do not format.
 Actual kernel /dev/fuse runtime operation, multi-user permissions,
 dynamic statfs, writable physical media and the eventual direct kernel
 SO loader remain unqualified.
+
+The FUSE host CI additionally attempts a real mounted Linux VFS create,
+read, rename, truncate and remove cycle when the runner exposes /dev/fuse;
+when the device is absent, this test records the runtime mount as unqualified
+rather than treating the skipped mount as evidence of success.

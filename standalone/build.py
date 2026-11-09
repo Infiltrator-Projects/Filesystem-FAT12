@@ -159,7 +159,7 @@ PDF = Path("docs/FAT12.pdf")
 
 def install_deps():
     # Resolve only build-time tools; installed .so and PDF have no Python dependency.
-    packages = ("build-essential", "binutils", "python3", "dpkg-dev", "pkg-config", "libfuse3-dev")
+    packages = ("build-essential", "binutils", "python3", "dpkg-dev", "pkg-config", "libfuse3-dev", "fuse3")
     missing = [p for p in packages if subprocess.run(
         ["dpkg-query", "-W", "-f=$" + "{Status}", p],
         capture_output=True, text=True).stdout.strip() != "install ok installed"]

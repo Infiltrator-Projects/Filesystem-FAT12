@@ -20,7 +20,7 @@ jobs:
       - name: Native C build and independent validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential pkg-config libfuse3-dev dosfstools mtools
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libfuse3-dev fuse3 dosfstools mtools
       - name: Qualify authoritative SO
         run: make check
       - name: Compile native VFS host
@@ -39,6 +39,45 @@ jobs:
             fsck.fat -n -v "$image"
             mdir -i "$image" ::
           done
+      - name: Attempt actual kernel FUSE mount when the runner exposes /dev/fuse
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -c /dev/fuse ]]; then
+            echo "KERNEL-FUSE-UNAVAILABLE: callback/regular-file tests passed; mount unqualified"
+            exit 0
+          fi
+          work="$RUNNER_TEMP/ifs-fuse-live"
+          mkdir -p "$work/mount"
+          truncate -s 8388608 "$work/volume.img"
+          build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$work/volume.img"
+          build/ifs-fuse-host --mount-rw-image "$PWD/build/FAT12.so" "$work/volume.img" "$work/mount" &
+          host_pid=$!
+          cleanup() {
+            if mountpoint -q "$work/mount"; then fusermount3 -u "$work/mount" || true; fi
+            kill "$host_pid" 2>/dev/null || true
+            wait "$host_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          ready=0
+          for i in $(seq 1 50); do
+            if mountpoint -q "$work/mount"; then ready=1; break; fi
+            if ! kill -0 "$host_pid" 2>/dev/null; then break; fi
+            sleep 0.2
+          done
+          test "$ready" -eq 1
+          printf 'FAT12 via canonical SO and Linux VFS\n' > "$work/mount/canonical.txt"
+          cmp <(printf 'FAT12 via canonical SO and Linux VFS\n') "$work/mount/canonical.txt"
+          mv "$work/mount/canonical.txt" "$work/mount/renamed.txt"
+          truncate -s 9 "$work/mount/renamed.txt"
+          test "$(wc -c < "$work/mount/renamed.txt")" -eq 9
+          rm "$work/mount/renamed.txt"
+          sync
+          fusermount3 -u "$work/mount"
+          wait "$host_pid"
+          trap - EXIT
+          fsck.fat -n "$work/volume.img"
+          echo "KERNEL-FUSE-MOUNT-READ-WRITE-PASS"
       - name: Record qualification boundary
         run: |
           echo "Canonical .so and FUSE operation callbacks validated on disposable images."

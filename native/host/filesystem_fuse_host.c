@@ -190,9 +190,14 @@ static int f_readdir(const char *path,void *buf,fuse_fill_dir_t fill,
     if(root.type!=IFS_FS_ENTRY_DIRECTORY)return -ENOTDIR;
     if(off<0 || (uint64_t)off>UINT32_MAX)return -EINVAL;
     if(off==0) {
-        if(fill(buf,".",NULL,1,0) || fill(buf,"..",NULL,2,0))return 0;
+        if(fill(buf,".",NULL,1,0))return 0;
+        off=1;
     }
-    uint32_t index=off>2?(uint32_t)off-2u:0u;
+    if(off==1) {
+        if(fill(buf,"..",NULL,2,0))return 0;
+        off=2;
+    }
+    uint32_t index=(uint32_t)off-2u;
     for(;index<UINT32_MAX;++index) {
         IfsFsEntryV1 e;char name[768]={0};
         e=(IfsFsEntryV1){0};e.structure_bytes=sizeof e;
@@ -276,6 +281,12 @@ static int find_file(void *data,const char *name,const struct stat *s,
     if(!strcmp(name,"FUSEREN.TXT"))*(int *)data=1;
     return 0;
 }
+static int find_parent(void *data,const char *name,const struct stat *s,
+                       off_t off,enum fuse_fill_dir_flags flags) {
+    (void)s;(void)off;(void)flags;
+    if(!strcmp(name,".."))*(int *)data=1;
+    return 0;
+}
 static int selftest(const char *module,const char *image) {
     struct stat st;
     if(lstat(image,&st)!=0 || !S_ISREG(st.st_mode) ||
@@ -296,7 +307,7 @@ static int selftest(const char *module,const char *image) {
     const char *a="/FUSETEST.TXT",*b="/FUSEREN.TXT";
     const char msg[]="canonical filesystem FUSE roundtrip";
     char got[sizeof msg]={0};
-    int seen=0;
+    int seen=0,parent_seen=0;
     uint32_t errors=UINT32_MAX;
     if(f_getattr("/",&attr,NULL)!=0 || !S_ISDIR(attr.st_mode) ||
        f_create(a,0644,&fi)!=0 ||
@@ -305,6 +316,7 @@ static int selftest(const char *module,const char *image) {
        memcmp(got,msg,sizeof msg-1u) ||
        f_rename(a,b,0u)!=0 ||
        f_readdir("/",&seen,find_file,0,NULL,0)!=0 || !seen ||
+       f_readdir("/",&parent_seen,find_parent,1,NULL,0)!=0 || !parent_seen ||
        f_truncate(b,9,NULL)!=0 ||
        f_getattr(b,&attr,NULL)!=0 || attr.st_size!=9 ||
        f_unlink(b)!=0 ||
