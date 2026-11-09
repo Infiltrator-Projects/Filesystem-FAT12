@@ -94,6 +94,8 @@ int main(int argc,char **argv)
     if(fs->mount(&io.host,&session,&info)!=IFS_FS_OK || !session ||
        info.variant!=12u || info.free_bytes>info.total_bytes)
         return fail("mount formatted FAT12 image");
+    if(disk.bytes==255u*1024u*1024u && info.block_bytes!=65536u)
+        return fail("255 MiB FAT12 allocation unit must be 64 KiB");
     const char *dir="/SUBDIR";
     const char *name="/SUBDIR/Verified Café Unicode Data.txt";
     const char *renamed="/SUBDIR/Renamed File.txt";

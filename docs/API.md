@@ -31,3 +31,8 @@ power-failure recovery are independent **unfinished** engineering goals.
 
 Consumers must load the Common filesystem export; no old V1/V3/V4
 filesystem lookup or compatibility fallback is permitted.
+
+For FAT12 formatting, allocation-unit selection trials are *non-destructive* and
+bounded, probing FAT12's strict cluster-count threshold before any actual media
+write. The engine can choose 64 KiB clusters for a 255 MiB FAT12 partition
+without silently formatting it as FAT16. The 255 MiB image is tested in CI.

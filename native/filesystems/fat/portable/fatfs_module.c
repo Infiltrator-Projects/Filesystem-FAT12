@@ -355,11 +355,31 @@ static int format_volume(const IfsFatfsIo *io,uint32_t cluster_bytes)
     if (cluster_bytes && (cluster_bytes<device.sector_bytes ||
         cluster_bytes>(uint64_t)device.sector_bytes*128u ||
         (cluster_bytes & (cluster_bytes-1u)))) goto done;
-    options.au_size=cluster_bytes;
-    preview_boot_seen=0;
-    format_preview=1;
-    if (f_mkfs("0:",&options,work,sizeof work)!=FR_OK || !preview_matches_format())
-        goto done;
+    /* Select the smallest valid allocation unit for the requested FAT
+     * width. FatFs's unqualified default chooses FAT16 for large volumes
+     * such as a 255 MiB FAT12 test partition. Each candidate is a pure
+     * dry run: disk_read rejects all calls and disk_write records only the
+     * proposed BPB. No media writes occur until width is independently
+     * validated against FAT12's strict cluster-count boundary. */
+    int preview_ok=0;
+    uint32_t candidate=cluster_bytes;
+    for (unsigned attempt=0;attempt<10u;++attempt) {
+        options.au_size=candidate;
+        preview_boot_seen=0;
+        format_preview=1;
+        if (f_mkfs("0:",&options,work,sizeof work)==FR_OK &&
+            preview_matches_format()) {
+            preview_ok=1;
+            break;
+        }
+        if (cluster_bytes) break;
+        if (!candidate) candidate=device.sector_bytes;
+        else {
+            if (candidate>(uint64_t)device.sector_bytes*64u) break;
+            candidate*=2u;
+        }
+    }
+    if (!preview_ok) goto done;
     format_preview=0;
     if (f_mkfs("0:",&options,work,sizeof work)!=FR_OK) goto done;
     /* Confirm that the completed on-media result is the named variant. */

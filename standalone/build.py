@@ -124,10 +124,11 @@ def test(module):
          "-Wall", "-Wextra", "-Werror", "-I", ROOT / "src/infiltratr-common/include",
          ROOT / "tests/fatfs_common_format_test.c", "-ldl", "-o", format_exe])
     with tempfile.TemporaryDirectory(prefix=f"fat{WIDTH}-common-media-") as temp:
-        image = Path(temp) / "fat12.img"
-        with image.open("wb") as target:
-            target.truncate(1440 * 1024)
-        run([format_exe, module, image, "512"])
+        for size in (1440 * 1024, 255 * 1024 * 1024):
+            image = Path(temp) / f"fat12-{size}.img"
+            with image.open("wb") as target:
+                target.truncate(size)
+            run([format_exe, module, image, "512"])
 
 
 def main():
