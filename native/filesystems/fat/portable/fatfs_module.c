@@ -2,12 +2,12 @@
  * Adapter for source-owned ChaN FatFs R0.16 patch2. One active image per
  * standalone module: caller must ensure exclusive media ownership and never
  * concurrently invoke this ABI. A .so is not a Linux VFS mount or EFI driver.
- * V4 separately exposes explicitly requested partition formatting.
+ * Common exposes the one filesystem interface including formatting.
  */
 #include "fatfs_module.h"
 #include "ff.h"
 #include "diskio.h"
-#include "fat12_module.h"
+#include "classic_fat_module.h"
 #include "infiltratr/filesystem_module.h"
 
 #if IFS_FATFS_ONLY != 12
