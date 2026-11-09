@@ -78,6 +78,57 @@ jobs:
           trap - EXIT
           fsck.fat -n "$work/volume.img"
           echo "KERNEL-FUSE-MOUNT-READ-WRITE-PASS"
+      - name: Verify two simultaneous kernel mounts use separate SO sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -c /dev/fuse ]]; then
+            echo "TWO-VOLUME-KERNEL-MOUNT-UNQUALIFIED: /dev/fuse absent"
+            exit 0
+          fi
+          work="$RUNNER_TEMP/ifs-fuse-two"
+          mkdir -p "$work/a" "$work/b"
+          truncate -s 1474560 "$work/a.img"
+          truncate -s 8388608 "$work/b.img"
+          build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$work/a.img"
+          build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$work/b.img"
+          build/ifs-fuse-host --mount-rw-image "$PWD/build/FAT12.so" "$work/a.img" "$work/a" &
+          a_pid=$!
+          build/ifs-fuse-host --mount-rw-image "$PWD/build/FAT12.so" "$work/b.img" "$work/b" &
+          b_pid=$!
+          cleanup() {
+            for mount in "$work/a" "$work/b"; do
+              if mountpoint -q "$mount"; then fusermount3 -u "$mount" || true; fi
+            done
+            kill "$a_pid" "$b_pid" 2>/dev/null || true
+            wait "$a_pid" 2>/dev/null || true
+            wait "$b_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          ready=0
+          for i in $(seq 1 50); do
+            if mountpoint -q "$work/a" && mountpoint -q "$work/b"; then
+              ready=1; break
+            fi
+            if ! kill -0 "$a_pid" 2>/dev/null || ! kill -0 "$b_pid" 2>/dev/null; then break; fi
+            sleep 0.2
+          done
+          test "$ready" -eq 1
+          printf 'volume A only\n' > "$work/a/FIRST.TXT"
+          printf 'volume B only\n' > "$work/b/SECOND.TXT"
+          test ! -e "$work/a/SECOND.TXT"
+          test ! -e "$work/b/FIRST.TXT"
+          cmp <(printf 'volume A only\n') "$work/a/FIRST.TXT"
+          cmp <(printf 'volume B only\n') "$work/b/SECOND.TXT"
+          sync
+          fusermount3 -u "$work/a"
+          fusermount3 -u "$work/b"
+          wait "$a_pid"
+          wait "$b_pid"
+          trap - EXIT
+          fsck.fat -n "$work/a.img"
+          fsck.fat -n "$work/b.img"
+          echo "TWO-VOLUME-KERNEL-FUSE-SO-ISOLATION-PASS"
       - name: Record qualification boundary
         run: |
           echo "Canonical .so and FUSE operation callbacks validated on disposable images."
