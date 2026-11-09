@@ -200,9 +200,10 @@ int main(void)
         char name[768];
         char bytes[sizeof payload];
         IfsFsEntryV1 entry={sizeof(IfsFsEntryV1),0,0,0,0,name,sizeof name};
-        IfsFsVolumeInfoV1 info={sizeof(IfsFsVolumeInfoV1)};
+        IfsFsVolumeInfoV1 info={0};
         void *mounted=NULL, *second=NULL;
         unsigned writes;
+        info.structure_bytes=sizeof info;
         host.flags=IFS_FS_IO_EXCLUSIVE;
         host.write_at=common_write_at;
         host.flush=common_flush_at;
