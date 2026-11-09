@@ -75,16 +75,8 @@ def compile_module(module, flags, training=False):
 
 
 def train_profile(module, workspace):
-    """Read/fragment and format/write/metadata against disposable media only."""
+    """Exercise the one canonical ABI with disposable media for PGO."""
     test(module)
-    exe = workspace / f"fat{WIDTH}-v4-training"
-    run([os.environ.get("CC", "cc"), "-std=c11", "-O2", "-Wall",
-         "-Wextra", "-Werror", "-I", PORT,
-         ROOT / "tests/fatfs_v4_format_test.c", "-ldl", "-o", exe])
-    image = workspace / "disposable-fat.img"
-    with image.open("wb") as file:
-        file.truncate((8 if WIDTH == 12 else 32) * 1024 * 1024)
-    run([exe, module, image, "512", "4096"])
 
 
 def build(profile, module):
@@ -123,10 +115,20 @@ def build(profile, module):
 def test(module):
     exe = module.parent / f"fat{WIDTH}-module-test"
     run([os.environ.get("CC", "cc"), "-std=c11", "-O2",
-         "-Wall", "-Wextra", "-Werror", "-I", MOD,
+         "-Wall", "-Wextra", "-Werror", "-I", ROOT / "src/infiltratr-common/include",
          ROOT / "tests" / f"fat{WIDTH}_module_test.c",
          module, "-Wl,-rpath,$ORIGIN", "-o", exe])
     run([exe])
+    format_exe = module.parent / f"fat{WIDTH}-common-format-test"
+    run([os.environ.get("CC", "cc"), "-std=c11", "-O2",
+         "-Wall", "-Wextra", "-Werror", "-I", ROOT / "src/infiltratr-common/include",
+         ROOT / "tests/fatfs_common_format_test.c", "-ldl", "-o", format_exe])
+    with tempfile.TemporaryDirectory(prefix=f"fat{WIDTH}-common-media-") as temp:
+        image = Path(temp) / "fat12.img"
+        with image.open("wb") as target:
+            target.truncate(1440 * 1024)
+        run([format_exe, module, image, "512"])
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -196,7 +198,7 @@ def release_source_files():
             q.startswith("standalone/") or q.startswith("docs/") or
             q in ("README.md", "VERSION", "MIGRATION-PROVENANCE.md",
                   "src/infiltratr-common/LICENSE", f"tests/fat{WIDTH}_module_test.c",
-                  "tests/fatfs_v4_format_test.c")
+                  "tests/fatfs_common_format_test.c")
         )
         if selected and (ROOT / p).is_file() and not (ROOT / p).is_symlink():
             chosen.append(p)
