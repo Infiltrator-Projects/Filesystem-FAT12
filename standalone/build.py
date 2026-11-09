@@ -21,8 +21,7 @@ SOURCES = [MOD / f"fat{WIDTH}_module.c"] + [
     "fat_relayout.c", "fat_io.c", "fat_journal.c", "fat_relocation.c",
     "fat_volume.c", "fat_defrag_module.c")]
 INCLUDES = [MOD, PORT, DEF, DEF / "host", ROOT / "native/include", ROOT / "src/infiltratr-common/include"]
-EXPORTS = ("infiltrator_filesystem_module_v1", "infiltrator_filesystem_module_v3",
-           "infiltrator_filesystem_module_v4", "infiltrator_filesystem_defrag_v1",
+EXPORTS = ("infiltrator_filesystem_api_v1", "infiltrator_filesystem_defrag_v1",
            "infiltrator_filesystem_boot_v1")
 
 def run(args):
@@ -39,9 +38,13 @@ def inspect(module):
         if symbol not in exports:
             raise RuntimeError("Missing ABI export: " + symbol)
     meta = subprocess.check_output(["readelf", "-p", ".ifsmeta", str(module)], text=True)
-    for api in (1, 3, 4):
-        if f"IFS-MODULE:fat{WIDTH}:{api}" not in meta:
-            raise RuntimeError("Missing exact FAT format identity")
+    if f"IFS-MODULE:fat{WIDTH}:common1" not in meta:
+        raise RuntimeError("Missing canonical FAT filesystem identity")
+    for obsolete in ("infiltrator_filesystem_module_v1",
+                     "infiltrator_filesystem_module_v3",
+                     "infiltrator_filesystem_module_v4"):
+        if obsolete in exports:
+            raise RuntimeError("Historical filesystem ABI still exported: " + obsolete)
     if "(NEEDED)" in subprocess.check_output(["readelf", "-d", str(module)], text=True):
         raise RuntimeError("Unexpected runtime shared-library dependency")
     manifest = struct.pack("<8sIIII16s32s", b"IFSBOOT1", 72, 1, 62, 1,

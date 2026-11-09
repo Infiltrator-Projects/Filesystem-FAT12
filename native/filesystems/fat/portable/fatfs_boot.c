@@ -69,7 +69,7 @@ static int IFS_BOOT_CALL boot_mount(const IfsBootIo *io) {
 }
 static int IFS_BOOT_CALL boot_unmount(void) {
     if (!boot_mounted || open_files) return IFS_BOOT_INVALID;
-    if (infiltrator_filesystem_module_v3()->unmount() != 0)
+    if (ifs_fatfs_boot_detach() != 0)
         return IFS_BOOT_IO_ERROR;
     boot_mounted = 0;
     return IFS_BOOT_OK;
