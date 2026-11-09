@@ -256,6 +256,73 @@ int ifs_classic_fat_check(const IfsClassicFatIo *io,
 #endif
 }
 
+
+/* Secondary-mirror-only repair. A wholly valid first FAT, including all
+ * reachable chains and allocation ownership, is an absolute prerequisite.
+ * Writes touch only FAT copies 1..N, never primary FAT, data or directories.
+ * Interrupted writes leave the canonical first table intact and can be
+ * retried. No orphan reclamation or ambiguous directory repair is attempted.
+ *
+ * Returns 0=success, 1=primary corrupt, 2=no redundant FAT, -1=I/O error.
+ * repaired counts changed 128-byte mirror chunks, not recovered files. */
+int ifs_classic_fat_repair_mirrors(
+    const IfsClassicFatIo *io,const IfsClassicFatVolume *volume,
+    IfsClassicFatWriteAt write_at,IfsClassicFatFlush flush,
+    uint32_t *repaired)
+{
+#if IFS_CLASSIC_FAT_BITS != 12
+    (void)io;(void)volume;(void)write_at;(void)flush;(void)repaired;
+    return 2;
+#else
+    IfsClassicFatVolume primary;
+    uint8_t source[128],target[128];
+    uint32_t errors=0,changes=0;
+    uint64_t fat_bytes;
+    if(!io || !volume || !write_at || !flush || !repaired ||
+       !io->read_at || volume->fat_copies>4u ||
+       !volume->sectors_per_fat || !volume->bytes_per_sector)
+        return -1;
+    *repaired=0u;
+    if(volume->fat_copies<2u) return 2;
+    primary=*volume;
+    primary.fat_copies=1u;
+    if(ifs_classic_fat_check(io,&primary,&errors)!=0) return -1;
+    if(errors!=0u) return 1;
+    fat_bytes=(uint64_t)volume->sectors_per_fat*volume->bytes_per_sector;
+    /* The FAT12 allocation domain is at most 4,084 data clusters.
+     * Reject abusive FAT padding instead of scanning an unbounded target. */
+    if(fat_bytes>16u*1024u*1024u ||
+       volume->fat_offset+(uint64_t)volume->fat_copies*fat_bytes >
+           volume->root_offset)
+        return -1;
+    for(uint32_t copy=1u;copy<volume->fat_copies;++copy) {
+        const uint64_t destination=volume->fat_offset+(uint64_t)copy*fat_bytes;
+        for(uint64_t offset=0;offset<fat_bytes;offset+=sizeof source) {
+            uint32_t size=(uint32_t)(fat_bytes-offset<sizeof source ?
+                                     fat_bytes-offset:sizeof source);
+            int mismatch=0;
+            if(bounded_read(io,volume->fat_offset+offset,source,size)!=0 ||
+               bounded_read(io,destination+offset,target,size)!=0)
+                return -1;
+            for(uint32_t i=0;i<size;++i)
+                if(source[i]!=target[i]) {mismatch=1;break;}
+            if(mismatch) {
+                if(destination+offset>volume->volume_bytes ||
+                   size>volume->volume_bytes-destination-offset ||
+                   write_at(io->context,destination+offset,source,size)!=0)
+                    return -1;
+                ++changes;
+            }
+        }
+        if(changes && flush(io->context)!=0) return -1;
+    }
+    if(ifs_classic_fat_check(io,volume,&errors)!=0 || errors!=0u)
+        return -1;
+    *repaired=changes;
+    return 0;
+#endif
+}
+
 static int classic_fat_root_file(const IfsClassicFatIo *io, const IfsClassicFatVolume *v,
                            uint32_t nth, IfsClassicFatFile *file)
 {

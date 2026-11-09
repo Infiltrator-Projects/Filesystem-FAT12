@@ -789,6 +789,27 @@ static int common_check(void *context,uint32_t *errors)
            IFS_FS_OK:IFS_FS_IO_ERROR;
 }
 
+
+static int common_recover(void *context,uint32_t *repaired)
+{
+    IfsClassicFatIo io;
+    IfsClassicFatVolume geometry;
+    int result;
+    if(!common_session_valid(context) || !repaired) return IFS_FS_INVALID;
+    if(!common_writable()) return IFS_FS_ACCESS;
+    io.read_at=common_session.host.read_at;
+    io.context=common_session.host.context;
+    io.device_bytes=common_session.host.volume_bytes;
+    if(infiltrator_filesystem_module_v1()->probe(&io,&geometry)!=0)
+        return IFS_FS_CORRUPT;
+    result=ifs_classic_fat_repair_mirrors(
+        &io,&geometry,common_session.host.write_at,
+        common_session.host.flush,repaired);
+    return result==0 ? IFS_FS_OK :
+           result==1 ? IFS_FS_CORRUPT :
+           result==2 ? IFS_FS_UNSUPPORTED : IFS_FS_IO_ERROR;
+}
+
 __attribute__((used,section(".ifsmeta")))
 static const char common_identity[] = "IFS-MODULE:fat12:common1";
 static const IfsFsModuleApiV1 common_api = {
@@ -796,12 +817,12 @@ static const IfsFsModuleApiV1 common_api = {
     IFS_FS_CAP_PROBE | IFS_FS_CAP_MOUNT | IFS_FS_CAP_LIST |
     IFS_FS_CAP_READ | IFS_FS_CAP_WRITE | IFS_FS_CAP_CREATE |
     IFS_FS_CAP_REMOVE | IFS_FS_CAP_RENAME | IFS_FS_CAP_TRUNCATE |
-    IFS_FS_CAP_FORMAT | IFS_FS_CAP_CHECK,
+    IFS_FS_CAP_FORMAT | IFS_FS_CAP_CHECK | IFS_FS_CAP_RECOVER,
     common_probe, common_mount, common_unmount, common_stat,
     common_directory_entry, common_file_read, common_file_write,
     common_create, common_remove, common_rename, common_truncate,
     common_format,
-    common_check, 0
+    common_check, common_recover
 };
 __attribute__((visibility("default")))
 const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void)

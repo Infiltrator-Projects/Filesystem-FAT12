@@ -70,6 +70,13 @@ typedef struct {
 int ifs_classic_fat_check(const IfsClassicFatIo *io,
                           const IfsClassicFatVolume *volume,
                           uint32_t *errors_out);
+typedef int (*IfsClassicFatWriteAt)(void *context,uint64_t offset,
+                                    const void *data,uint32_t bytes);
+typedef int (*IfsClassicFatFlush)(void *context);
+int ifs_classic_fat_repair_mirrors(
+    const IfsClassicFatIo *io,const IfsClassicFatVolume *volume,
+    IfsClassicFatWriteAt write_at,IfsClassicFatFlush flush,
+    uint32_t *repaired);
 
 /* Exported discovery symbol. Not a Linux .ko, EFI image, or full defrag ABI. */
 const IfsClassicFatModule *infiltrator_filesystem_module_v1(void);

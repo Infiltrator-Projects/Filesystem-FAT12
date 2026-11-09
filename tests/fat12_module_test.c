@@ -167,7 +167,8 @@ int main(void)
         common->capabilities != (IFS_FS_CAP_PROBE | IFS_FS_CAP_MOUNT |
             IFS_FS_CAP_LIST | IFS_FS_CAP_READ | IFS_FS_CAP_WRITE |
             IFS_FS_CAP_CREATE | IFS_FS_CAP_REMOVE | IFS_FS_CAP_RENAME |
-            IFS_FS_CAP_TRUNCATE | IFS_FS_CAP_FORMAT | IFS_FS_CAP_CHECK) ||
+            IFS_FS_CAP_TRUNCATE | IFS_FS_CAP_FORMAT | IFS_FS_CAP_CHECK |
+            IFS_FS_CAP_RECOVER) ||
         !common->probe || !common->format || !common->mount || !common->check ||
         common->recover || common->probe(&host, &variant) != IFS_FS_OK ||
         variant != 12u)
@@ -275,7 +276,7 @@ int main(void)
         host.flags=IFS_FS_IO_READ_ONLY;
         host.write_at=NULL;host.flush=NULL;
         if(common->mount(&host,&session,&info)!=IFS_FS_OK ||
-           !common->check || common->recover ||
+           !common->check || !common->recover ||
            common->check(session,&errors)!=IFS_FS_OK || errors!=0u ||
            common_write_count!=before ||
            common->unmount(session)!=IFS_FS_OK)
@@ -337,6 +338,48 @@ int main(void)
             !mounted || info.variant!=12u ||
             common->unmount(mounted)!=IFS_FS_OK)
             return failure("blank FAT12 formatted media could not mount");
+    }
+
+
+    /* Never try to repair a chain with orphaned data. Valid primary FAT
+     * must survive interrupted mirror writes; read-only hosts cannot repair. */
+    {
+        void *session=NULL;
+        uint32_t errors=0,changes=0,before;
+        IfsFsVolumeInfoV1 info={0};
+        fixture();
+        fat(9u,0xfffu); /* orphan present in both FATs */
+        host.flags=IFS_FS_IO_EXCLUSIVE;
+        host.write_at=common_write_at;
+        host.flush=common_flush_at;
+        info.structure_bytes=sizeof info;
+        before=common_write_count;
+        if(common->mount(&host,&session,&info)!=IFS_FS_OK ||
+           common->recover(session,&changes)!=IFS_FS_CORRUPT ||
+           common_write_count!=before ||
+           common->unmount(session)!=IFS_FS_OK)
+            return failure("unsafe orphan recovery was not rejected");
+        fixture();
+        image[(1u+FAT_SECTORS)*SECTOR+12u]^=1u;
+        host.flags=IFS_FS_IO_READ_ONLY;
+        host.write_at=NULL;host.flush=NULL;
+        info.structure_bytes=sizeof info;
+        before=common_write_count;
+        if(common->mount(&host,&session,&info)!=IFS_FS_OK ||
+           common->recover(session,&changes)!=IFS_FS_ACCESS ||
+           common_write_count!=before ||
+           common->unmount(session)!=IFS_FS_OK)
+            return failure("read-only FAT mirror repair was not blocked");
+        host.flags=IFS_FS_IO_EXCLUSIVE;
+        host.write_at=common_write_at;
+        host.flush=common_flush_at;
+        info.structure_bytes=sizeof info;
+        if(common->mount(&host,&session,&info)!=IFS_FS_OK ||
+           common->recover(session,&changes)!=IFS_FS_OK || changes==0u ||
+           common_write_count==before ||
+           common->check(session,&errors)!=IFS_FS_OK || errors!=0u ||
+           common->unmount(session)!=IFS_FS_OK)
+            return failure("safe FAT12 secondary mirror repair failed");
     }
 
     puts("FAT12-MODULE-READ-AND-FRAGMENT-PASS");
