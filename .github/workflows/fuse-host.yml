@@ -43,10 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! -c /dev/fuse ]]; then
-            echo "KERNEL-FUSE-UNAVAILABLE: callback/regular-file tests passed; mount unqualified"
-            exit 0
-          fi
+          test -c /dev/fuse || { echo "Required kernel FUSE device is unavailable" >&2; exit 1; }
           work="$RUNNER_TEMP/ifs-fuse-live"
           mkdir -p "$work/mount"
           truncate -s 8388608 "$work/volume.img"
@@ -78,14 +75,46 @@ jobs:
           trap - EXIT
           fsck.fat -n "$work/volume.img"
           echo "KERNEL-FUSE-MOUNT-READ-WRITE-PASS"
+      - name: Verify read-only Linux kernel mount denies all mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/fuse
+          work="$RUNNER_TEMP/ifs-fuse-readonly"
+          mkdir -p "$work/mount"
+          truncate -s 8388608 "$work/volume.img"
+          build/ifs-fuse-host --self-test "$PWD/build/FAT12.so" "$work/volume.img"
+          build/ifs-fuse-host --mount-ro-image "$PWD/build/FAT12.so" "$work/volume.img" "$work/mount" &
+          host_pid=$!
+          cleanup() {
+            if mountpoint -q "$work/mount"; then fusermount3 -u "$work/mount" || true; fi
+            kill "$host_pid" 2>/dev/null || true
+            wait "$host_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          ready=0
+          for i in $(seq 1 50); do
+            if mountpoint -q "$work/mount"; then ready=1; break; fi
+            if ! kill -0 "$host_pid" 2>/dev/null; then break; fi
+            sleep 0.2
+          done
+          test "$ready" -eq 1
+          test -d "$work/mount"
+          if printf 'must be refused\n' > "$work/mount/NO_WRITE.TXT"; then
+            echo "Read-only FAT12 mount accepted a write!" >&2
+            exit 1
+          fi
+          test ! -e "$work/mount/NO_WRITE.TXT"
+          fusermount3 -u "$work/mount"
+          wait "$host_pid"
+          trap - EXIT
+          fsck.fat -n "$work/volume.img"
+          echo "KERNEL-FUSE-READONLY-ENFORCEMENT-PASS"
       - name: Verify two simultaneous kernel mounts use separate SO sessions
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! -c /dev/fuse ]]; then
-            echo "TWO-VOLUME-KERNEL-MOUNT-UNQUALIFIED: /dev/fuse absent"
-            exit 0
-          fi
+          test -c /dev/fuse || { echo "Required two-volume kernel FUSE device is unavailable" >&2; exit 1; }
           work="$RUNNER_TEMP/ifs-fuse-two"
           mkdir -p "$work/a" "$work/b"
           truncate -s 1474560 "$work/a.img"
@@ -132,4 +161,5 @@ jobs:
       - name: Record qualification boundary
         run: |
           echo "Canonical .so and FUSE operation callbacks validated on disposable images."
-          echo "Actual kernel /dev/fuse mounting and physical power-loss tests are separate outstanding gates."
+          echo "Actual kernel FUSE read/write, read-only and two-volume mounts are required by this workflow."
+          echo "Direct kernel ELF .so execution, physical block writes, multi-user and power-loss recovery are still unqualified."
