@@ -170,7 +170,7 @@ int main(void)
             IFS_FS_CAP_TRUNCATE | IFS_FS_CAP_FORMAT | IFS_FS_CAP_CHECK |
             IFS_FS_CAP_RECOVER) ||
         !common->probe || !common->format || !common->mount || !common->check ||
-        common->recover || common->probe(&host, &variant) != IFS_FS_OK ||
+        !common->recover || common->probe(&host, &variant) != IFS_FS_OK ||
         variant != 12u)
         return failure("Common ABI probe or capability declaration");
     common_write_count = 0u;
