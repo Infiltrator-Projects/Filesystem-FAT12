@@ -55,8 +55,6 @@ def build_deb(profile, dest, kernel_target=None):
         fsbuild.test(module)
         if hasattr(fsbuild, "cleanup_test_artifacts"):
             fsbuild.cleanup_test_artifacts(module)
-        vfs_host = root / "System/Commands/ifs-fuse-host"
-        fsbuild.build_fuse_host(module, vfs_host)
         # The fixture test is an ephemeral QA executable, never a filesystem driver.
         # The fixture executable is removed by the standalone test harness.
         info_dir = root / "System/Resources/Documentation"
@@ -69,7 +67,6 @@ def build_deb(profile, dest, kernel_target=None):
             kernel.build(kernel_file, kernel_target)
             kernel_fields = kernel_metadata(kernel_file, kernel_target[1])
         digest = hashlib.sha256(module.read_bytes()).hexdigest()
-        vfs_digest = hashlib.sha256(vfs_host.read_bytes()).hexdigest()
         pdf_digest = hashlib.sha256(manual.read_bytes()).hexdigest()
         revision = source_revision()
         control = root / "DEBIAN"
@@ -79,18 +76,16 @@ def build_deb(profile, dest, kernel_target=None):
             f"Package: {PACKAGE}\nVersion: {deb_version}\nArchitecture: amd64\n"
             "Section: admin\nPriority: optional\n"
             "Maintainer: Infiltrator Projects <noreply@infiltrator-projects.invalid>\n"
-            f"Depends: {fsbuild.dependencies(module)}\n"
             f"X-Infiltrator-Source-Revision: {revision}\n"
             f"X-Infiltrator-Native-Profile: {profile}\n"
             f"X-Infiltrator-LTO: {'enabled' if profile == 'aggressive' else 'disabled'}\n"
             f"X-Infiltrator-PGO: {'trained-two-pass' if profile == 'aggressive' else 'disabled'}\n"
             f"X-Infiltrator-Cflags: {' '.join(flags)}\n"
             f"X-Infiltrator-Resource-SHA256: {digest}\n"
-            f"X-Infiltrator-VFS-Host-SHA256: {vfs_digest}\n"
             f"X-Infiltrator-PDF-SHA256: {pdf_digest}\n"
             f"{kernel_fields}"
             f"Description: Independent {MODULE} filesystem shared object for InfiltratorOS\n"
-            f" Installs {MODULE}, the generic Linux VFS host and its PDF.\n"
+            f" Installs {MODULE} and its PDF.\n"
             + (" Includes the Linux kernel module for manual use.\n" if kernel_target else ""))
         dest.parent.mkdir(parents=True, exist_ok=True)
         run(["dpkg-deb", "--root-owner-group", "--build", root, dest])
@@ -101,7 +96,6 @@ def build_deb(profile, dest, kernel_target=None):
             run(["dpkg-deb", "-x", dest, check])
             actual = {p.relative_to(check) for p in Path(check).rglob("*") if p.is_symlink() or not p.is_dir()}
             expected = {Path(f"System/Filesystems/{MODULE}"),
-                        Path("System/Commands/ifs-fuse-host"),
                         Path(f"System/Resources/Documentation/{REPO}.pdf")}
             if kernel_target:
                 expected.add(KERNEL_PATH)

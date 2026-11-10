@@ -37,32 +37,17 @@ bounded, probing FAT12's strict cluster-count threshold before any actual media
 write. The engine can choose 64 KiB clusters for a 255 MiB FAT12 partition
 without silently formatting it as FAT16. The 255 MiB image is tested in CI.
 
-## Canonical Linux VFS host
+## Native kernel integration boundary
 
-The `ifs-fuse-host` executable under `/System/Commands` loads the one
-`FAT12.so` Common API and translates Linux FUSE3 file operations. This
-is a format-neutral bridge, not a second driver. Each mount runs its own
-foreground process and its own single-volume SO session, allowing multiple
-volumes to be independently hosted. Read-only regular-file images and block
-devices are supported; explicit write mode is **regular-file images only**.
+The installed `/System/Filesystems/FAT12.so` is the canonical filesystem engine.
+A kernel-owned generic loader must validate and load this exact ELF artifact,
+execute the canonical `infiltrator_filesystem_api_v1` interface in kernel
+context, provide bounded partition-relative block I/O and translate the API
+into native VFS operations. No userspace filesystem transport or parallel
+FAT12 reader is permitted. The legacy kernel-specific filesystem module is
+transitional; the direct ELF loader and full kernel mount qualification remain
+unfinished.
 
-`--self-test` formats only a named disposable image and qualifies the
-canonical API against FUSE callback mapping. Normal mounts do not format.
-Actual kernel /dev/fuse runtime operation, multi-user permissions,
-dynamic statfs, writable physical media and the eventual direct kernel
-SO loader remain unqualified.
-
-The FUSE host CI additionally attempts a real mounted Linux VFS create,
-read, rename, truncate and remove cycle when the runner exposes /dev/fuse;
-when the device is absent, this test records the runtime mount as unqualified
-rather than treating the skipped mount as evidence of success.
-
-### Destructive fixture admission
-
-The explicit FUSE host `--self-test` command is intentionally destructive,
-but now requires an exclusively locked regular file whose **entire contents
-are zero** before it invokes `FAT12.so` formatting. An existing filesystem,
-a nonzero payload anywhere within the image, or a failed read is rejected
-before any write. CI verifies that a second attempted self-test does not
-alter a previously formatted image, byte for byte. Normal mount operations
-continue to have no formatting path.
+Formatting continues to be performed only by the canonical SO, under
+exclusive media ownership and the existing physical-removable-media safety
+checks. Normal mounting must never format any medium.

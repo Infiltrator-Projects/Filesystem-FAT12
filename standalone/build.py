@@ -159,7 +159,7 @@ PDF = Path("docs/FAT12.pdf")
 
 def install_deps():
     # Resolve only build-time tools; installed .so and PDF have no Python dependency.
-    packages = ("build-essential", "binutils", "python3", "dpkg-dev", "pkg-config", "libfuse3-dev", "fuse3")
+    packages = ("build-essential", "binutils", "python3", "dpkg-dev")
     missing = [p for p in packages if subprocess.run(
         ["dpkg-query", "-W", "-f=$" + "{Status}", p],
         capture_output=True, text=True).stdout.strip() != "install ok installed"]
@@ -169,29 +169,6 @@ def install_deps():
         apt = [*prefix, "apt-get", "-o", "DPkg::Lock::Timeout=-1"]
         run([*apt, "update"])
         run([*apt, "install", "-y", "--no-install-recommends", *packages])
-
-def dependencies(module):
-    inspect(module)
-    return "libc6, libfuse3-3, fuse3"
-
-def build_fuse_host(module, dest):
-    """Build and qualify native C Linux VFS host, never duplicate FAT code."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    cflags = subprocess.check_output(["pkg-config", "--cflags", "fuse3"], text=True).split()
-    libs = subprocess.check_output(["pkg-config", "--libs", "fuse3"], text=True).split()
-    run([os.environ.get("CC", "cc"), "-std=c11", "-O2", "-Wall",
-         "-Wextra", "-Wpedantic", "-Werror", "-fstack-protector-strong",
-         "-fPIE", "-I", ROOT / "src/infiltratr-common/include",
-         *cflags, ROOT / "native/host/filesystem_fuse_host.c",
-         "-pie", "-Wl,-z,relro", "-Wl,-z,now", "-ldl",
-         *libs, "-o", dest])
-    run([dest, "--help"])
-    with tempfile.TemporaryDirectory(prefix="fat12-fuse-package-test-") as tmp:
-        for bytes in (1440 * 1024, 255 * 1024 * 1024):
-            image = Path(tmp) / f"fat12-{bytes}.img"
-            with image.open("wb") as stream:
-                stream.truncate(bytes)
-            run([dest, "--self-test", module, image])
 
 def prepare_release_source():
     pass
@@ -214,7 +191,6 @@ def release_source_files():
         q = p.as_posix()
         selected = (
             q.startswith("native/filesystems/fat/") or
-            q.startswith("native/host/") or
             q.startswith("src/infiltratr-common/include/") or
             q.startswith("native/include/") or
             q.startswith("standalone/") or q.startswith("docs/") or

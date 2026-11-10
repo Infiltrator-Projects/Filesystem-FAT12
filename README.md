@@ -29,8 +29,7 @@ FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,
 
 - `/System/Filesystems/FAT12.so`
 - `/System/Resources/Documentation/Filesystem-FAT12.pdf`
-- `/System/Commands/ifs-fuse-host` (generic mount adapter, not another FAT12 engine)
 
-The published Debian package installs FAT12.so, its PDF and a generic FUSE3 Linux VFS host. The host delegates all filesystem semantics to the shared object and runs one independent process per volume. Physical writes remain blocked by this host; real /dev/fuse mounting and power-failure recovery remain separate qualification gates. The native RUN can separately compile a transitional kernel adapter against a qualified, prepared kernel build; that adapter is not an additional published filesystem product. Use `--kernel-build DIRECTORY` when deliberately building one.
+The published Debian package installs FAT12.so and its PDF only. FAT12 has no userspace VFS intermediary: native Kernel integration must execute the canonical shared-object engine directly through a kernel-owned, format-neutral loader. Kernel direct mounting and power-failure recovery remain unqualified. The native RUN can separately compile a transitional kernel adapter against a qualified, prepared kernel build; that adapter is not an additional published filesystem product. Use `--kernel-build DIRECTORY` when deliberately building one.
 
 InfiltratorOS calls `--system-package-mode` and decides which outputs need updating. Its worker builds a missing or older SO, repairs the PDF independently, and stores the matching released kernel module when available. Use `--build-only --output DIRECTORY` to build a Debian package.
