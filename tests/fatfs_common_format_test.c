@@ -34,6 +34,8 @@ static int wr(void *u,uint64_t at,const void *p,uint32_t n)
 static int flush(void *u) { return fsync(((Disk *)u)->fd)==0?0:-1; }
 static int fail(const char *message)
 { fprintf(stderr,"FAT12-COMMON-FAIL: %s\n",message);return 1; }
+static void *allocate_at(void *ctx,size_t n) {(void)ctx;return malloc(n);}
+static void release_at(void *ctx,void *p) {(void)ctx;free(p);}
 
 int main(int argc,char **argv)
 {
@@ -52,65 +54,71 @@ int main(int argc,char **argv)
 
     void *library=dlopen(argv[1],RTLD_NOW|RTLD_LOCAL);
     if(!library)return fail(dlerror());
-    const IfsFsModuleApiV1 *(*resolve)(void)=
-        (const IfsFsModuleApiV1 *(*)(void))dlsym(library,IFS_FS_COMMON_EXPORT_V1);
-    const IfsFsModuleApiV1 *fs=resolve?resolve():NULL;
-    if(!ifs_fs_common_api_valid(fs,"fat12") ||
-       !fs->format || !fs->probe || !fs->mount || !fs->unmount ||
-       !fs->check || !fs->read || !fs->write || !fs->create ||
-       !fs->remove || !fs->rename || !fs->truncate ||
-       !fs->directory_entry || !fs->stat)
-        return fail("canonical filesystem API incomplete");
+    void *symbol=dlsym(library,IFS_FS_COMMON_EXPORT_V2);
+    IfsFsModuleApiEntryV2 resolve=NULL;
+    if (sizeof(symbol)!=sizeof(resolve))return fail("function pointer size");
+    memcpy(&resolve,&symbol,sizeof(resolve));
+    const IfsFsModuleApiV2 *api=resolve?resolve():NULL;
+    if(!ifs_fs_api_v2_valid(api,"fat12"))
+        return fail("canonical Common V2 descriptor invalid");
+    const IfsFsCoreOpsV2 *fs =
+        (const IfsFsCoreOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_CORE);
+    const IfsFsVolumeOpsV2 *vol =
+        (const IfsFsVolumeOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_VOLUME);
+    if(!fs || !vol || !fs->probe || !fs->mount || !fs->unmount ||
+       !fs->read || !fs->write || !fs->create || !fs->remove ||
+       !fs->rename || !fs->truncate || !fs->directory_entry ||
+       !fs->stat || !vol->format || !vol->check || !vol->query)
+        return fail("canonical V2 operations missing");
 
-    IfsFsHostFormatIoV1 io={0};
-    io.host.structure_bytes=sizeof io;
-    io.host.flags=IFS_FS_IO_EXCLUSIVE;
-    io.host.context=&disk;
-    io.host.volume_bytes=disk.bytes;
-    io.host.read_at=rd;
-    io.host.write_at=wr;
-    io.host.flush=flush;
+    IfsFsHostRuntimeV2 io={0};
+    io.abi_version=IFS_FS_HOST_ABI_V2;
+    io.structure_bytes=sizeof io;
+    io.capabilities=IFS_FS_HOST_EXCLUSIVE|IFS_FS_HOST_DURABLE;
+    io.context=&disk;
+    io.volume_bytes=disk.bytes;
     io.logical_sector_bytes=(uint32_t)bps;
+    io.physical_sector_bytes=(uint32_t)bps;
+    io.maximum_transfer_bytes=65536u;
+    io.read_at=rd;
+    io.write_at=wr;
+    io.flush=flush;
+    io.allocate=allocate_at;
+    io.release=release_at;
     uint32_t variant=0;
 
-    if(fs->format(&io.host,16u,NULL)!=IFS_FS_UNSUPPORTED || disk.writes)
+    if(vol->format(&io,16u,NULL,0u)!=IFS_FS_UNSUPPORTED || disk.writes)
         return fail("foreign format must not write");
     io.logical_sector_bytes=256u;
-    if(fs->format(&io.host,12u,NULL)!=IFS_FS_INVALID || disk.writes)
+    if(vol->format(&io,12u,NULL,0u)!=IFS_FS_INVALID || disk.writes)
         return fail("invalid sector size must not write");
     io.logical_sector_bytes=(uint32_t)bps;
-    io.host.flags=IFS_FS_IO_READ_ONLY;
-    if(fs->format(&io.host,12u,NULL)!=IFS_FS_ACCESS || disk.writes)
+    io.capabilities=IFS_FS_HOST_READ_ONLY;
+    io.write_at=NULL;io.flush=NULL;
+    if(vol->format(&io,12u,NULL,0u)!=IFS_FS_ACCESS || disk.writes)
         return fail("read-only format must not write");
-    io.host.flags=IFS_FS_IO_EXCLUSIVE;
+    io.capabilities=IFS_FS_HOST_EXCLUSIVE|IFS_FS_HOST_DURABLE;
+    io.write_at=wr;io.flush=flush;
 
-    if(fs->format(&io.host,12u,NULL)!=IFS_FS_OK || !disk.writes ||
-       fs->probe(&io.host,&variant)!=IFS_FS_OK || variant!=12u)
+    if(vol->format(&io,12u,NULL,0u)!=IFS_FS_OK || !disk.writes ||
+       fs->probe(&io,&variant)!=IFS_FS_OK || variant!=12u)
         return fail("blank FAT12 format and probe");
 
-    IfsFsVolumeInfoV1 info={0};
+    IfsFsVolumeInfoV2 info={0};
     info.structure_bytes=sizeof info;
     void *session=NULL;
-    if(fs->mount(&io.host,&session,&info)!=IFS_FS_OK || !session ||
+    if(fs->mount(&io,&session,&info)!=IFS_FS_OK || !session ||
        info.variant!=12u || info.free_bytes>info.total_bytes)
         return fail("mount formatted FAT12 image");
     {
-        const IfsFsModuleApiV2 *(*resolve_v2)(void)=
-            (const IfsFsModuleApiV2 *(*)(void))
-            dlsym(library, IFS_FS_COMMON_EXPORT_V2);
-        const IfsFsModuleApiV2 *v2 = resolve_v2 ? resolve_v2() : NULL;
-        const IfsFsVolumeOpsV1 *vol = v2 ?
-            (const IfsFsVolumeOpsV1 *)ifs_fs_group_v2(
-                v2, IFS_FS_GROUP_VOLUME) : NULL;
-        IfsFsVolumeInfoV1 current = {0};
-        current.structure_bytes = sizeof(current);
-        if (!ifs_fs_api_v2_valid(v2, "fat12") || !vol ||
-            !(vol->header.capabilities & IFS_FS_VOLUME_QUERY) ||
-            !vol->query || vol->query(session, &current) != IFS_FS_OK ||
-            current.variant != info.variant ||
-            current.total_bytes != info.total_bytes ||
-            current.free_bytes != info.free_bytes ||
-            current.block_bytes != info.block_bytes)
+        IfsFsVolumeInfoV2 current={0};
+        current.structure_bytes=sizeof current;
+        if (!(vol->header.capabilities & IFS_FS_VOLUME_QUERY) ||
+            vol->query(session,&current)!=IFS_FS_OK ||
+            current.variant!=info.variant ||
+            current.total_bytes!=info.total_bytes ||
+            current.free_bytes!=info.free_bytes ||
+            current.block_bytes!=info.block_bytes)
             return fail("Common V2 volume inquiry differs from mounted engine");
     }
     if(disk.bytes==255u*1024u*1024u && info.block_bytes!=65536u)
@@ -122,7 +130,7 @@ int main(int argc,char **argv)
     for(unsigned i=0;i<sizeof payload;++i)
         payload[i]=(unsigned char)((i*17u+23u)&255u);
     char outname[768]={0};
-    IfsFsEntryV1 entry={0};
+    IfsFsEntryV2 entry={0};
     entry.structure_bytes=sizeof entry;
     entry.name=outname;
     entry.name_capacity=sizeof outname;
@@ -139,13 +147,13 @@ int main(int argc,char **argv)
        entry.size_bytes!=1000u)
         return fail("create/write/read/Unicode/rename/truncate");
 
-    uint32_t errors=UINT32_MAX;
-    if(fs->check(session,&errors)!=IFS_FS_OK || errors!=0u ||
+    uint64_t errors=UINT64_MAX;
+    if(vol->check(session,0u,&errors)!=IFS_FS_OK || errors!=0u ||
        fs->unmount(session)!=IFS_FS_OK)
         return fail("new-media FAT integrity or unmount");
 
     info.structure_bytes=sizeof info;
-    if(fs->mount(&io.host,&session,&info)!=IFS_FS_OK ||
+    if(fs->mount(&io,&session,&info)!=IFS_FS_OK ||
        fs->read(session,renamed,0,readback,1000u)!=IFS_FS_OK ||
        memcmp(payload,readback,1000u)!=0 ||
        fs->read(session,"/../SUBDIR/Renamed File.txt",0,readback,1)!=IFS_FS_INVALID)
@@ -160,7 +168,7 @@ int main(int argc,char **argv)
     }
     if(!found || fs->remove(session,renamed)!=IFS_FS_OK ||
        fs->remove(session,dir)!=IFS_FS_OK ||
-       fs->check(session,&errors)!=IFS_FS_OK || errors!=0u ||
+       vol->check(session,0u,&errors)!=IFS_FS_OK || errors!=0u ||
        fs->unmount(session)!=IFS_FS_OK || flush(&disk)!=0)
         return fail("enumerate/delete/final integrity");
 

@@ -21,8 +21,7 @@ SOURCES = [MOD / "classic_fat_module.c"] + [
     "fat_relayout.c", "fat_io.c", "fat_journal.c", "fat_relocation.c",
     "fat_volume.c", "fat_defrag_module.c")]
 INCLUDES = [MOD, PORT, DEF, DEF / "host", ROOT / "native/include", ROOT / "src/infiltratr-common/include"]
-EXPORTS = ("infiltrator_filesystem_api_v1", "infiltrator_filesystem_api_v2", "infiltrator_filesystem_defrag_v1",
-           "infiltrator_filesystem_boot_v1")
+EXPORTS = ("infiltrator_filesystem_api_v2",)
 
 def run(args):
     subprocess.run([str(a) for a in args], check=True)
@@ -38,9 +37,10 @@ def inspect(module):
         if symbol not in exports:
             raise RuntimeError("Missing ABI export: " + symbol)
     meta = subprocess.check_output(["readelf", "-p", ".ifsmeta", str(module)], text=True)
-    if f"IFS-MODULE:fat{WIDTH}:common1" not in meta or f"IFS-MODULE:fat{WIDTH}:common2" not in meta:
-        raise RuntimeError("Missing canonical FAT filesystem identity")
-    for obsolete in ("infiltrator_filesystem_module_v1",
+    if f"IFS-MODULE:fat{WIDTH}:common2" not in meta:
+        raise RuntimeError("Missing canonical Common V2 filesystem identity")
+    for obsolete in ("infiltrator_filesystem_api_v1",
+                     "infiltrator_filesystem_module_v1",
                      "infiltrator_filesystem_module_v3",
                      "infiltrator_filesystem_module_v4"):
         if obsolete in exports:
