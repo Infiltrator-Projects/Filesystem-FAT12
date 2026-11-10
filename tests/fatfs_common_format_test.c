@@ -3,7 +3,7 @@
  * Tests the production filesystem shared object, never a test-only engine.
  */
 #define _POSIX_C_SOURCE 200809L
-#include "infiltratr/filesystem_module.h"
+#include "infiltratr/filesystem_module_v2.h"
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -94,6 +94,25 @@ int main(int argc,char **argv)
     if(fs->mount(&io.host,&session,&info)!=IFS_FS_OK || !session ||
        info.variant!=12u || info.free_bytes>info.total_bytes)
         return fail("mount formatted FAT12 image");
+    {
+        const IfsFsModuleApiV2 *(*resolve_v2)(void)=
+            (const IfsFsModuleApiV2 *(*)(void))
+            dlsym(library, IFS_FS_COMMON_EXPORT_V2);
+        const IfsFsModuleApiV2 *v2 = resolve_v2 ? resolve_v2() : NULL;
+        const IfsFsVolumeOpsV1 *vol = v2 ?
+            (const IfsFsVolumeOpsV1 *)ifs_fs_group_v2(
+                v2, IFS_FS_GROUP_VOLUME) : NULL;
+        IfsFsVolumeInfoV1 current = {0};
+        current.structure_bytes = sizeof(current);
+        if (!ifs_fs_api_v2_valid(v2, "fat12") || !vol ||
+            !(vol->header.capabilities & IFS_FS_VOLUME_QUERY) ||
+            !vol->query || vol->query(session, &current) != IFS_FS_OK ||
+            current.variant != info.variant ||
+            current.total_bytes != info.total_bytes ||
+            current.free_bytes != info.free_bytes ||
+            current.block_bytes != info.block_bytes)
+            return fail("Common V2 volume inquiry differs from mounted engine");
+    }
     if(disk.bytes==255u*1024u*1024u && info.block_bytes!=65536u)
         return fail("255 MiB FAT12 allocation unit must be 64 KiB");
     const char *dir="/SUBDIR";

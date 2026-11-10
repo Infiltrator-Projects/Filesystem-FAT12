@@ -830,6 +830,21 @@ const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void)
 /* V2 is a negotiated extension over the SAME V1 FatFs engine. This volume
  * group exposes only qualified operations, not fictitious stream, VFS handle
  * or kernel-direct capabilities. */
+/* Reuse the mounted FatFs engine's authoritative allocation accounting.
+ * Do not infer free space from the partition size or parse the FAT again. */
+static int v2_query_volume(void *mounted, IfsFsVolumeInfoV1 *info)
+{
+    uint64_t total = 0u, free_bytes = 0u;
+    if (!common_session_valid(mounted) || !info ||
+        info->structure_bytes < sizeof(*info)) return IFS_FS_INVALID;
+    if (volume_space(&total, &free_bytes) != 0) return IFS_FS_IO_ERROR;
+    info->variant = 12u;
+    info->max_name_bytes = 765u;
+    info->block_bytes = (uint32_t)volume.csize * device.sector_bytes;
+    info->total_bytes = total;
+    info->free_bytes = free_bytes;
+    return IFS_FS_OK;
+}
 static int common_v2_sync(void *volume)
 {
     if (!common_session_valid(volume)) return IFS_FS_INVALID;
@@ -886,8 +901,9 @@ static const char common_v2_identity[]="IFS-MODULE:fat12:common2";
 static const IfsFsVolumeOpsV1 common_v2_volume={
     .header={IFS_FS_GROUP_ABI_V1,sizeof(IfsFsVolumeOpsV1),
              IFS_FS_GROUP_VOLUME,0u,
-             IFS_FS_VOLUME_SYNC|IFS_FS_VOLUME_CHECK|
+             IFS_FS_VOLUME_QUERY|IFS_FS_VOLUME_SYNC|IFS_FS_VOLUME_CHECK|
              IFS_FS_VOLUME_REPAIR|IFS_FS_VOLUME_FORMAT},
+    .query=v2_query_volume,
     .sync=common_v2_sync,
     .check=common_v2_check,
     .repair=common_v2_repair,
