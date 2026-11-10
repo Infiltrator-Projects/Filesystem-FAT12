@@ -481,8 +481,6 @@ static uint32_t common_timestamp(void *context)
 static int common_format(const IfsFsHostRuntimeV2 *host, uint32_t variant,
                          const char *volume_label, uint32_t flags)
 {
-    IfsClassicFatIo input;
-    IfsClassicFatVolume geometry;
     IfsFatfsIo io;
     if (!host || host->structure_bytes < sizeof(*host) ||
         !host->read_at || host->volume_bytes < 512u ||
