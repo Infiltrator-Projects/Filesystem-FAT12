@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Independent in-memory FAT12 fixture. No host filesystem or block devices. */
 #include "../src/infiltratr-common/include/infiltratr/filesystem_module.h"
+#include "../src/infiltratr-common/include/infiltratr/filesystem_module_v2.h"
+extern const IfsFsModuleApiV2 *infiltrator_filesystem_api_v2(void);
 extern const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void);
 #include <stdint.h>
 #include <stdio.h>
@@ -102,6 +104,18 @@ int main(void)
     /* Common's single format-neutral ABI must be the advertised entry point,
      * not another competing set of per-format capabilities. */
     const IfsFsModuleApiV1 *common = infiltrator_filesystem_api_v1();
+    const IfsFsModuleApiV2 *v2 = infiltrator_filesystem_api_v2();
+    const IfsFsVolumeOpsV1 *v2_volume =
+        (const IfsFsVolumeOpsV1 *)ifs_fs_group_v2(v2, IFS_FS_GROUP_VOLUME);
+    if (!ifs_fs_api_v2_valid(v2, "fat12") ||
+        v2->base_v1 != common ||
+        v2->group_mask != IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME) ||
+        !v2_volume || !v2_volume->sync || !v2_volume->check ||
+        !v2_volume->repair || !v2_volume->format ||
+        (v2->runtime_profiles & IFS_FS_PROFILE_KERNEL) ||
+        ifs_fs_group_v2(v2, IFS_FS_GROUP_STREAMS))
+        return failure("V2 descriptor or honest capability contract");
+
     IfsFsHostIoV1 host = {
         sizeof(IfsFsHostIoV1), IFS_FS_IO_READ_ONLY, NULL,
         sizeof image, read_at, common_write_at, common_flush_at, NULL, NULL
@@ -328,6 +342,27 @@ int main(void)
             return failure("safe FAT12 secondary mirror repair failed");
     }
 
+
+    /* Use the V2 volume group on real disposable FAT12 media. */
+    {
+        void *volume=NULL;
+        uint64_t errors=UINT64_MAX,repairs=UINT64_MAX;
+        unsigned before=common_write_count;
+        IfsFsVolumeInfoV1 info={0};
+        info.structure_bytes=sizeof info;
+        fixture();
+        host.flags=IFS_FS_IO_READ_ONLY;
+        host.write_at=NULL;host.flush=NULL;
+        if (common->mount(&host,&volume,&info)!=IFS_FS_OK ||
+            v2_volume->check(volume,0u,&errors)!=IFS_FS_OK ||
+            errors!=0u ||
+            v2_volume->sync(volume)!=IFS_FS_OK ||
+            v2_volume->repair(volume,0u,&repairs)!=IFS_FS_ACCESS ||
+            v2_volume->check(volume,1u,&errors)!=IFS_FS_UNSUPPORTED ||
+            common_write_count!=before ||
+            common->unmount(volume)!=IFS_FS_OK)
+            return failure("V2 read-only fsck/sync/repair safety");
+    }
     puts("FAT12-COMMON-API-CHECK-AND-RECOVER-PASS");
     return 0;
 }

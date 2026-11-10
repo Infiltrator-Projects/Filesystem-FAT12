@@ -33,3 +33,14 @@ FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,
 The published Debian package installs FAT12.so and its PDF only. FAT12 has no userspace VFS intermediary: native Kernel integration must execute the canonical shared-object engine directly through a kernel-owned, format-neutral loader. Kernel direct mounting and power-failure recovery remain unqualified. The native RUN can separately compile a transitional kernel adapter against a qualified, prepared kernel build; that adapter is not an additional published filesystem product. Use `--kernel-build DIRECTORY` when deliberately building one.
 
 InfiltratorOS calls `--system-package-mode` and decides which outputs need updating. Its worker builds a missing or older SO, repairs the PDF independently, and stores the matching released kernel module when available. Use `--build-only --output DIRECTORY` to build a Debian package.
+
+## Universal Common V2 ABI (FAT12 pilot)
+
+`FAT12.so` exports `infiltrator_filesystem_api_v2` in addition to the
+unchanged Common V1 table. V2 delegates to the **same** FAT12 engine. Its
+qualified volume group implements sync, read-only integrity checking,
+exclusive mirror repair and explicitly-sized formatting using the V2
+host-service/geometry descriptor. Other V2 groups are not advertised until
+real native implementations and separate media tests exist. This does not
+claim direct Kernel or UEFI V2 loading; existing Boot-specific execution
+and Linux compatibility paths remain independent qualification gates.

@@ -9,6 +9,7 @@
 #include "diskio.h"
 #include "classic_fat_module.h"
 #include "infiltratr/filesystem_module.h"
+#include "infiltratr/filesystem_module_v2.h"
 
 #if IFS_FATFS_ONLY != 12
 #error "The Common filesystem ABI pilot is owned by FAT12 only"
@@ -824,4 +825,90 @@ __attribute__((visibility("default")))
 const IfsFsModuleApiV1 *infiltrator_filesystem_api_v1(void)
 {
     return &common_api;
+}
+
+/* V2 is a negotiated extension over the SAME V1 FatFs engine. This volume
+ * group exposes only qualified operations, not fictitious stream, VFS handle
+ * or kernel-direct capabilities. */
+static int common_v2_sync(void *volume)
+{
+    if (!common_session_valid(volume)) return IFS_FS_INVALID;
+    if (!common_session.host.flush) return IFS_FS_OK; /* read-only */
+    return common_session.host.flush(common_session.host.context) == 0 ?
+           IFS_FS_OK : IFS_FS_IO_ERROR;
+}
+static int common_v2_check(void *volume, uint32_t flags, uint64_t *errors)
+{
+    uint32_t count = 0;
+    int status;
+    if (!errors) return IFS_FS_INVALID;
+    if (flags) return IFS_FS_UNSUPPORTED;
+    status = common_check(volume, &count);
+    if (status == IFS_FS_OK) *errors = count;
+    return status;
+}
+static int common_v2_repair(void *volume, uint32_t flags, uint64_t *repaired)
+{
+    uint32_t count = 0;
+    int status;
+    if (!repaired) return IFS_FS_INVALID;
+    if (flags) return IFS_FS_UNSUPPORTED;
+    status = common_recover(volume, &count);
+    if (status == IFS_FS_OK) *repaired = count;
+    return status;
+}
+static int common_v2_format(const IfsFsHostRuntimeV2 *host,
+                            uint32_t variant, const char *label,
+                            uint32_t flags)
+{
+    IfsFsHostFormatIoV1 io = {0};
+    if (!host) return IFS_FS_INVALID;
+    if (flags) return IFS_FS_UNSUPPORTED;
+    if (host->capabilities & IFS_FS_HOST_READ_ONLY) return IFS_FS_ACCESS;
+    if (!(host->capabilities & IFS_FS_HOST_EXCLUSIVE) ||
+        !(host->capabilities & IFS_FS_HOST_DURABLE))
+        return IFS_FS_ACCESS;
+    if (!ifs_fs_host_v2_valid(host)) return IFS_FS_INVALID;
+    io.host.structure_bytes=sizeof(io);
+    io.host.flags=IFS_FS_IO_EXCLUSIVE;
+    io.host.context=host->context;
+    io.host.volume_bytes=host->volume_bytes;
+    io.host.read_at=host->read_at;
+    io.host.write_at=host->write_at;
+    io.host.flush=host->flush;
+    io.host.allocate=host->allocate;
+    io.host.release=host->release;
+    io.logical_sector_bytes=host->logical_sector_bytes;
+    return common_format(&io.host, variant, label);
+}
+__attribute__((used,section(".ifsmeta")))
+static const char common_v2_identity[]="IFS-MODULE:fat12:common2";
+static const IfsFsVolumeOpsV1 common_v2_volume={
+    .header={IFS_FS_GROUP_ABI_V1,sizeof(IfsFsVolumeOpsV1),
+             IFS_FS_GROUP_VOLUME,0u,
+             IFS_FS_VOLUME_SYNC|IFS_FS_VOLUME_CHECK|
+             IFS_FS_VOLUME_REPAIR|IFS_FS_VOLUME_FORMAT},
+    .sync=common_v2_sync,
+    .check=common_v2_check,
+    .repair=common_v2_repair,
+    .format=common_v2_format
+};
+static const IfsFsGroupHeaderV2 *common_v2_query(
+    uint32_t id, uint32_t minimum, uint32_t maximum)
+{
+    if (id != IFS_FS_GROUP_VOLUME ||
+        minimum > IFS_FS_GROUP_ABI_V1 ||
+        maximum < IFS_FS_GROUP_ABI_V1) return NULL;
+    return &common_v2_volume.header;
+}
+static const IfsFsModuleApiV2 common_v2_api={
+    IFS_FS_COMMON_ABI_V2,sizeof(IfsFsModuleApiV2),"fat12",
+    IFS_FS_PROFILE_HOSTED|IFS_FS_PROFILE_FREESTANDING,
+    IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME),
+    &common_api,common_v2_query
+};
+__attribute__((visibility("default")))
+const IfsFsModuleApiV2 *infiltrator_filesystem_api_v2(void)
+{
+    return &common_v2_api;
 }
