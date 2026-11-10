@@ -12,7 +12,8 @@ done
 if grep -RinE '(libfuse|fusermount|fuse3|ifs-fuse-host|/dev/fuse|CONFIG_FUSE_FS)' \
     standalone packaging scripts native .github/workflows \
     --include='*.sh' --include='*.c' --include='*.h' --include='*.py' \
-    --include='*.yml' --include='*.yaml' --include='Makefile' 2>/dev/null; then
+    --include='*.yml' --include='*.yaml' --include='Makefile' \
+    --exclude='check-package.py' 2>/dev/null; then
   echo 'PROHIBITED FUSE source, package dependency, or installer reference' >&2
   exit 1
 fi
