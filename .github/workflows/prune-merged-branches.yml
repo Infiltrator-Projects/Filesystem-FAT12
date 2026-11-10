@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Keep work on main. Prune only branches already included in main, or exact
+# heads of verified merged PRs (including squash merges). Never prune drafts.
+name: Prune merged branches
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/prune-merged-branches.yml']
+  pull_request_target:
+    types: [closed]
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  prune:
+    if: ${{ github.event_name == 'push' || github.event.pull_request.merged == true }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Delete only already-integrated branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = pull_request_target ] && [ -n "$PR_NUMBER" ]; then
+            pr="$(gh api "repos/$REPO/pulls/$PR_NUMBER")"
+            if jq -e --arg repo "$REPO" --arg branch "$PR_BRANCH" \
+                 --arg sha "$PR_SHA" \
+                 '.merged == true and .head.repo.full_name == $repo and
+                  .head.ref == $branch and .head.sha == $sha' \
+                 <<< "$pr" >/dev/null; then
+              current="$(gh api "repos/$REPO/git/ref/heads/$PR_BRANCH" \
+                --jq '.object.sha' 2>/dev/null || true)"
+              if [ "$PR_BRANCH" != main ] && [ "$current" = "$PR_SHA" ]; then
+                gh api --method DELETE "repos/$REPO/git/refs/heads/$PR_BRANCH"
+              fi
+            fi
+          fi
+          # Fully contained branches have no commits absent from main.
+          # The comparison is ancestry-based; unmerged work is preserved.
+          gh api --paginate "repos/$REPO/branches?per_page=100" \
+            --jq '.[].name' | while IFS= read -r branch; do
+            [ "$branch" != main ] || continue
+            sha="$(gh api "repos/$REPO/git/ref/heads/$branch" \
+              --jq '.object.sha' 2>/dev/null || true)"
+            [ -n "$sha" ] || continue
+            encoded="$(jq -rn --arg name "$branch" '$name | @uri')"
+            ahead="$(gh api "repos/$REPO/compare/main...$encoded" \
+              --jq '.ahead_by' 2>/dev/null || true)"
+            [ "$ahead" = 0 ] || continue
+            current="$(gh api "repos/$REPO/git/ref/heads/$branch" \
+              --jq '.object.sha' 2>/dev/null || true)"
+            if [ "$current" = "$sha" ]; then
+              gh api --method DELETE "repos/$REPO/git/refs/heads/$branch"
+              printf 'Pruned already-contained branch: %s\n' "$branch"
+            fi
+          done
