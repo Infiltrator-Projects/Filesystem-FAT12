@@ -11,7 +11,15 @@ concurrency:
   group: filesystem-fat12-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 jobs:
+  no-fuse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject prohibited FUSE before installing any build dependencies
+        run: bash tests/no-fuse.sh
   qualify:
+    needs: no-fuse
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -63,6 +71,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   boot-consumer:
+    needs: no-fuse
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -122,6 +131,7 @@ jobs:
             --module "$root/build/FAT12.so" --kernel "$kernel" --reject-module \
             --output "$root/build/boot-reject"
   native-drivers:
+    needs: no-fuse
     uses: ./.github/workflows/drivers.yml
   manual-package:
     needs: qualify

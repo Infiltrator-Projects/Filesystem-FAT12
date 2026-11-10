@@ -18,6 +18,9 @@ fields = dict(line.split(": ", 1) for line in subprocess.check_output(
     ["dpkg-deb", "-f", str(args.package)], text=True).splitlines() if ": " in line and not line.startswith(" "))
 assert fields["X-Infiltrator-Native-Profile"] == args.profile
 assert fields["X-Infiltrator-Source-Revision"] == release.source_revision()
+for dependency_field in ("Depends", "Pre-Depends", "Recommends", "Suggests", "Enhances"):
+    assert "fuse" not in fields.get(dependency_field, "").lower(), (
+        "Prohibited FUSE package dependency: " + dependency_field)
 with tempfile.TemporaryDirectory(prefix="filesystem-package-check-") as temporary:
     root = Path(temporary)
     subprocess.run(["dpkg-deb", "-x", str(args.package), str(root)], check=True)
@@ -26,6 +29,8 @@ with tempfile.TemporaryDirectory(prefix="filesystem-package-check-") as temporar
     expected = {module, manual}
     assert not any(p.is_dir() for p in manual.parent.iterdir())
     build.inspect(module)
+    dynamic_symbols = subprocess.check_output(["readelf", "-d", str(module)], text=True)
+    assert "libfuse" not in dynamic_symbols.lower(), "Prohibited FUSE runtime linkage"
     assert manual.read_bytes().startswith(b"%PDF-")
     assert fields["X-Infiltrator-Resource-SHA256"] == hashlib.sha256(module.read_bytes()).hexdigest()
     assert fields["X-Infiltrator-PDF-SHA256"] == hashlib.sha256(manual.read_bytes()).hexdigest()
