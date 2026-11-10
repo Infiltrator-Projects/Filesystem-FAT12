@@ -75,7 +75,6 @@ int main(int argc,char **argv)
     io.abi_version=IFS_FS_HOST_ABI_V2;
     io.structure_bytes=sizeof io;
     io.capabilities=IFS_FS_HOST_EXCLUSIVE|IFS_FS_HOST_DURABLE;
-    io.write_at=wr;io.flush=flush;
     io.context=&disk;
     io.volume_bytes=disk.bytes;
     io.logical_sector_bytes=(uint32_t)bps;
@@ -94,19 +93,21 @@ int main(int argc,char **argv)
     if(vol->format(&io,12u,NULL,0u)!=IFS_FS_INVALID || disk.writes)
         return fail("invalid sector size must not write");
     io.logical_sector_bytes=(uint32_t)bps;
-    io.flags=IFS_FS_HOST_READ_ONLY;
+    io.capabilities=IFS_FS_HOST_READ_ONLY;
+    io.write_at=NULL;io.flush=NULL;
     if(vol->format(&io,12u,NULL,0u)!=IFS_FS_ACCESS || disk.writes)
         return fail("read-only format must not write");
-    io.flags=IFS_FS_HOST_EXCLUSIVE|IFS_FS_HOST_DURABLE;
+    io.capabilities=IFS_FS_HOST_EXCLUSIVE|IFS_FS_HOST_DURABLE;
+    io.write_at=wr;io.flush=flush;
 
     if(vol->format(&io,12u,NULL,0u)!=IFS_FS_OK || !disk.writes ||
-       fs->probe(&io.host,&variant)!=IFS_FS_OK || variant!=12u)
+       fs->probe(&io,&variant)!=IFS_FS_OK || variant!=12u)
         return fail("blank FAT12 format and probe");
 
     IfsFsVolumeInfoV2 info={0};
     info.structure_bytes=sizeof info;
     void *session=NULL;
-    if(fs->mount(&io.host,&session,&info)!=IFS_FS_OK || !session ||
+    if(fs->mount(&io,&session,&info)!=IFS_FS_OK || !session ||
        info.variant!=12u || info.free_bytes>info.total_bytes)
         return fail("mount formatted FAT12 image");
     {
@@ -152,7 +153,7 @@ int main(int argc,char **argv)
         return fail("new-media FAT integrity or unmount");
 
     info.structure_bytes=sizeof info;
-    if(fs->mount(&io.host,&session,&info)!=IFS_FS_OK ||
+    if(fs->mount(&io,&session,&info)!=IFS_FS_OK ||
        fs->read(session,renamed,0,readback,1000u)!=IFS_FS_OK ||
        memcmp(payload,readback,1000u)!=0 ||
        fs->read(session,"/../SUBDIR/Renamed File.txt",0,readback,1)!=IFS_FS_INVALID)
