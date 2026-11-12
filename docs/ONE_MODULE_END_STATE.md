@@ -1,6 +1,9 @@
 # FAT12: one module, complete filesystem, universal consumers
 
-**No historical ABI compatibility:** FAT12 is greenfield. Retire and remove the public `infiltrator_filesystem_module_v1`, `_v3` and `_v4` entry points and their obsolete table contracts; they are not three user-selectable modules and must not be retained for old callers. The sole format-neutral filesystem entry point is `infiltrator_filesystem_api_v1` (the `v1` here denotes the *current canonical contract*, not historical compatibility). BOOT and Defragmenter may use distinct, purpose-specific host interfaces but must delegate to the same FAT12 engine. Remove the redundant legacy root-directory/file reader as its responsibilities migrate to the canonical implementation; retain independent integrity algorithms only for fsck/recovery. Break and update consumers/tests rather than keeping legacy shims. A change is complete only when shipped symbol inspection, full CI, Boot, Files, Defragmenter, and independent FAT12 media tests all pass. The already published 0.1.19 remains the last tested release until that migration is proven; writing this requirement does **not** remove the existing exports.
+The canonical filesystem contract is Common V2. BOOT and applications use
+the same FAT12 engine. Qualified relocation and journal recovery still use
+the dedicated Defragmenter interface until equivalent Common V2 operations
+pass independent media tests.
 
 **Authoritative end state:** one independently distributed `FAT12.so` is the **entire FAT12 filesystem driver** and single source of filesystem semantics. The module lives under `/System/Filesystems/FAT12.so` and is discovered by BOOT, the InfiltratorOS kernel and all applications through reviewed, versioned module interfaces and generic loader/host adapters. See [the cross-project authority](https://github.com/Infiltrator-Projects/Filesystems/blob/main/docs/UNIFIED_FILESYSTEM_MODULE_ARCHITECTURE.md).
 
@@ -10,26 +13,14 @@ The end user must **not** have to manage `fat12.ko` and `FAT12.efi` as two addit
 - **Kernel:** the eventual kernel-owned generic module loader or filesystem bridge consumes the same FAT12 implementation. Stock Linux still uses VFS/kernel-safe drivers or an appropriate userspace filesystem service; any interim `fat12.ko` is an implementation bridge, not a separate future filesystem product. Early-root availability, kernel ABI and signing are requirements.
 - **Filesystems, Defragmenter, Test Media, Disks, Files and Setup:** consume FAT12.so's format operations; generic I/O, privilege and safety adapters remain generic. Independent external image tools validate changes so the engine cannot certify itself.
 
-**Present state versus destination:** The FAT12 SO now has a genuine generic Boot V1 interface and CI exercises the unchanged production Boot through OVMF with a real Linux kernel/initramfs, including malformed-module rejection without fallback. Linux KO and standalone EFI remain transitional; a generic kernel loader of the same SO and physical firmware qualification are not implemented. Release notes, built artifacts and licensing remain factually accurate, but three shipped binaries must never be advertised as the finished one-file objective.
+## Qualification
 
-**Migration gates:** prove one trusted complete read/write/format/rename/delete/recovery ABI; prove Defragmenter calls this very module; implement BOOT loading and real OVMF/kernel-image access from the same file; implement a kernel bridge for mount/read/write/remount/root bootstrap; verify host ABI, secure boot, staging a byte-identical module on firmware-readable media, rollback, and physical test media before calling FAT12 complete. Do not delete functional `.ko`/`.efi` paths until replacements pass independent equivalence tests.
+The Boot consumer workflow builds the production loader and exercises Common
+V2 with the same portable and native module bytes under OVMF. It loads a real
+Linux kernel and initramfs and checks that a module missing the required
+export is rejected. A generic kernel loader for this module and physical
+firmware qualification remain open.
 
-## Canonical FAT12 API implementation (9 November 2026)
-
-The historical FAT12 filesystem tables V1/V3/V4 have been removed, not
-aliased or shimmed. The **single canonical filesystem API** is
-`infiltrator_filesystem_api_v1`. Common now dispatches directly to the
-one FatFs read/write/format engine. The old duplicate 8.3 directory/file
-reader has been deleted. The small independent integrity scanner remains
-for FAT chain validation and secondary FAT mirror recovery, not to serve
-another independent FAT file reader.
-
-Current Boot and Defragmenter **host-specific interfaces** remain separate
-entry points inside the same `FAT12.so`; they are not legacy FAT12 APIs.
-One active volume per process and the existing I/O-safety limitations remain.
-
-This code is only a release after GitHub CI qualifies the exact source and
-publishes version 0.1.20. Historic 0.1.19 installations do not change
-automatically. On-device qualification of this revised binary, generic
-kernel execution of the SO, multiple-volume sessions and general repair
-are still to be demonstrated.
+Defragmenter, Files and Test Media require independent operation and
+disposable-media qualification. Kernel mount/read/write, early root,
+Secure Boot and power-loss recovery require separate evidence.

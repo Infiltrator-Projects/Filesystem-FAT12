@@ -25,7 +25,7 @@ Linux `.ko`, and UEFI `.efi`. This development work is not release approval.
   engine into the individual shared object. The V3 ABI provides directory and
   file read/write, allocation through file growth, creation, deletion, rename
   and truncate, with device I/O and flushing supplied by the caller. The
-  imported source headers retain their notices. The legacy V1 API remains
+  imported source headers retain their notices. The original FAT reader remains
   available. V3 currently allows only one active volume per module and callers
   must serialize access and hold exclusive ownership of the device. V4 adds
   formatting with a write-free FAT-width preflight, attributes, modified-time

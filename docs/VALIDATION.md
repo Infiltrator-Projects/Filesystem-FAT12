@@ -25,7 +25,7 @@ artifacts; these tests do not establish native physical Secure Boot signing.
 
 ## Native PGO qualification
 
-The aggressive native installer compiles a temporary instrumented shared object and trains it with the V1 fragmented-file read fixture and the V4 formatting/V3 writing/metadata fixture on a disposable regular-file image. A nonempty measured GCC profile is mandatory before rebuilding with PGO; only the temporary training object may link the host profiling runtime. The final -O3, CPU-native, LTO and trained-PGO module must retain freestanding -nostdlib linkage, zero dynamic dependencies and its exact FAT ABI identity.
+The aggressive native installer compiles a temporary instrumented shared object and trains it with the fragmented-file read fixture and the formatting, writing and metadata fixture on a disposable regular-file image. A nonempty measured GCC profile is mandatory before rebuilding with PGO; only the temporary training object may link the host profiling runtime. The final -O3, CPU-native, LTO and trained-PGO module must retain freestanding -nostdlib linkage, zero dynamic dependencies and its exact FAT ABI identity.
 
 The training data does not cover every defragmentation or crash-recovery path, and successful optimisation flags do not establish a measured performance improvement.
 

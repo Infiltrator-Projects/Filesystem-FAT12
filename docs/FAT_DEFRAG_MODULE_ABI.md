@@ -1,6 +1,6 @@
 # FAT defragmentation module interface
 
-The FAT12 and FAT16 shared objects export `infiltrator_filesystem_defrag_v1`
+The FAT12 and FAT16 shared objects supply a dedicated relocation and recovery interface
 in addition to their filesystem APIs. The same entry point is included in the
 existing FAT32 shared object to preserve Defragmenter's FAT32 support. The
 filesystem-specific analysis, relocation, directory updates and durable

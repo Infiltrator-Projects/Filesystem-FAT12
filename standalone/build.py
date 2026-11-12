@@ -4,7 +4,6 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
-import struct
 import sys
 import tempfile
 
@@ -16,7 +15,7 @@ DEF = BASE / "defrag"
 MOD = BASE / "module"
 PORT = BASE / "portable"
 SOURCES = [MOD / "classic_fat_module.c"] + [
-    PORT / name for name in ("fatfs_module.c", "fatfs_boot.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
+    PORT / name for name in ("fatfs_module.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
 ] + [DEF / name for name in ("writer.c", "fat_analysis.c", "fat_directory.c",
     "fat_relayout.c", "fat_io.c", "fat_journal.c", "fat_relocation.c",
     "fat_volume.c", "fat_defrag_module.c")]
@@ -42,15 +41,12 @@ def inspect(module):
     for obsolete in ("infiltrator_filesystem_api_v1",
                      "infiltrator_filesystem_module_v1",
                      "infiltrator_filesystem_module_v3",
-                     "infiltrator_filesystem_module_v4"):
+                     "infiltrator_filesystem_module_v4",
+                     "infiltrator_filesystem_boot_v1"):
         if obsolete in exports:
             raise RuntimeError("Historical filesystem ABI still exported: " + obsolete)
     if "(NEEDED)" in subprocess.check_output(["readelf", "-d", str(module)], text=True):
         raise RuntimeError("Unexpected runtime shared-library dependency")
-    manifest = struct.pack("<8sIIII16s32s", b"IFSBOOT1", 72, 1, 62, 1,
-                           f"fat{WIDTH}".encode(), f"FAT{WIDTH}".encode())
-    if manifest not in module.read_bytes():
-        raise RuntimeError("Missing exact freestanding Boot manifest")
     relocations = subprocess.check_output(["readelf", "-Wr", str(module)], text=True)
     for line in relocations.splitlines():
         if "R_X86_64_" in line and "R_X86_64_RELATIVE" not in line:

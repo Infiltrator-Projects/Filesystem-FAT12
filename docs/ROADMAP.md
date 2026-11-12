@@ -4,8 +4,8 @@
 
 ## Immediate standalone milestone
 
-- [x] Preserve full pinned source in an isolated migration branch, including duplication where required.
-- [ ] Build and qualify this repository's own `FAT12.so` with its V1/V3/V4 and defrag ABIs.
+- [x] Preserve full pinned source and its provenance.
+- [x] Build and qualify the independent `FAT12.so` Common V2 module.
 - [ ] Release only the matching standalone `.deb` and native `.run` after successful CI, plus GitHub's default source ZIP.
 - [ ] Transfer installer ownership from Filesystems without colliding with old selector builds.
 - [ ] Have InfiltratorOS install and verify both individual FAT modules.

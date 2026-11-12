@@ -10,7 +10,7 @@ module for one width must not be accepted as another by renaming the file.
   standalone adapters. `ff.c` identifies itself as R0.16 with patch 2;
   `ffunicode.c` identifies an R0.13c conversion implementation adapted to the
   R0.16 interface. Existing notices remain in the copied source.
-- `module/` contains the legacy V1 FAT12/16 adapters and independent FAT32
+- `module/` contains the original FAT12/16 adapters and independent FAT32
   reader. Each FAT12/16 shared object embeds the common portable sources and
   exports its own format identity; neither needs the other to be installed.
 - `defrag/` contains the shared FAT relocation and durable recovery engine,
@@ -26,7 +26,7 @@ module for one width must not be accepted as another by renaming the file.
 
 ## FAT12 and FAT16 shared objects
 
-The V1 API supplies classic FAT probing, root-file reading and fragment counts.
+The original reader supplies classic FAT probing, root-file reading and fragment counts.
 V3 supplies long names, nested directories, file/directory creation and
 removal, reading, writing, growth, truncation and rename. V4 adds formatting,
 attributes, modified-time read/write and capacity/free-space queries. Its

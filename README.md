@@ -14,12 +14,12 @@ The full source was copied from Infiltrator-Projects/Filesystems, pinned to comm
 
 - This repository: fat12 interpretation, read/write/file APIs, formatting, allocation, fat12 relocation, journal/recovery, format-specific kernel and EFI source and tests.
 - Filesystems: discovery, selection and management; it must not silently overwrite or install a second copy of this module after package ownership transfers.
-- Defragmenter: the worker and UI; it dynamically loads the installed `FAT12.so` and calls `infiltrator_filesystem_defrag_v1` via the existing versioned host ABI.
+- Defragmenter: the worker and UI; it dynamically loads the installed `FAT12.so` and uses the dedicated host for the qualified relocation and recovery operations.
 - Linux/UEFI transition: existing `fat12.ko` and `FAT12.efi` implementation and tests remain useful for compatibility and qualification. BOOT now uses the same `FAT12.so` through its validated, read-only generic ELF/UEFI bridge and boots a real Linux kernel/initramfs under OVMF. A generic kernel-side SO loader is not yet implemented.
 
 ## Filesystem qualification scope
 
-FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,085. Reject foreign formats, malformed geometry and ambiguous boundaries before changes. The independent `.so` exposes the single canonical Common filesystem API plus separate Defragmenter and read-only Boot host contracts; supported operations, limitations and required test evidence are tracked in [Validation](docs/VALIDATION.md) and [API](docs/API.md). Destructive testing must use disposable images only.
+FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,085. Reject foreign formats, malformed geometry and ambiguous boundaries before changes. The independent `.so` exposes the Common V2 filesystem API and the dedicated Defragmenter relocation and recovery interface; supported operations, limitations and required test evidence are tracked in [Validation](docs/VALIDATION.md) and [API](docs/API.md). Destructive testing must use disposable images only.
 
 ## Documentation
 
@@ -34,13 +34,11 @@ The published Debian package installs FAT12.so and its PDF only. FAT12 has no us
 
 InfiltratorOS calls `--system-package-mode` and decides which outputs need updating. Its worker builds a missing or older SO, repairs the PDF independently, and stores the matching released kernel module when available. Use `--build-only --output DIRECTORY` to build a Debian package.
 
-## Universal Common V2 ABI (FAT12 pilot)
+## Common V2 filesystem ABI
 
-`FAT12.so` exports `infiltrator_filesystem_api_v2` in addition to the
-unchanged Common V1 table. V2 delegates to the **same** FAT12 engine. Its
-qualified volume group implements sync, read-only integrity checking,
-exclusive mirror repair and explicitly-sized formatting using the V2
-host-service/geometry descriptor. Other V2 groups are not advertised until
-real native implementations and separate media tests exist. This does not
-claim direct Kernel or UEFI V2 loading; existing Boot-specific execution
-and Linux compatibility paths remain independent qualification gates.
+`FAT12.so` exposes `infiltrator_filesystem_api_v2` for application and
+firmware hosts. The volume group includes sync, integrity checks, exclusive
+mirror repair and explicitly sized formatting. BOOT uses the same module
+through a bounded read-only host. The dedicated Defragmenter relocation and
+recovery interface is still in use while those operations are qualified through
+Common V2.

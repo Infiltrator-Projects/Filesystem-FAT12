@@ -19,6 +19,4 @@ typedef struct {
     uint32_t bytes;
     uint8_t attributes;
 } IfsFatfsEntry;
-int ifs_fatfs_boot_attach(const IfsFatfsIo *);
-int ifs_fatfs_boot_detach(void);
 #endif

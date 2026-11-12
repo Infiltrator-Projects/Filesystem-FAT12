@@ -6,7 +6,7 @@ Original Filesystems source commit `d7a572dcd0d11f7bc69cc05e09e3e944be747838` an
 
 ## Evidence
 
-- Standalone C11 build produces `FAT12.so` with the exact FAT12 embedded metadata for ABI V1, V3 and V4, plus the Defragmenter relocation/recovery export.
+- Standalone C11 build produces `FAT12.so` with the exact FAT12 embedded metadata for the interfaces under audit, plus the Defragmenter relocation/recovery export.
 - The existing format-specific in-memory FAT fixture executed successfully under the exact standalone build.
 - The generated Debian package contains its own module, documentation and no opposite-format module, unrelated executables, or second filesystem implementation installation.
 - The aggressive `.run` rebuilt from a checksum-verified embedded source archive, installed native Debian `+native1`, and verified its installed module SHA against BUILD-INFO.
