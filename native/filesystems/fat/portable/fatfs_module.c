@@ -431,9 +431,8 @@ static int common_probe(const IfsFsHostRuntimeV2 *host,
 {
     IfsClassicFatIo input;
     IfsClassicFatVolume geometry;
-    if (!host || host->structure_bytes < sizeof(*host) ||
-        !host->read_at || !detected_variant || host->volume_bytes < 512u ||
-        !ifs_fs_host_v2_valid(host))
+    if (!ifs_fs_host_v2_valid(host) || !detected_variant ||
+        host->volume_bytes < 512u)
         return IFS_FS_INVALID;
     input.read_at = host->read_at;
     input.context = host->context;
@@ -470,9 +469,7 @@ static int common_format(const IfsFsHostRuntimeV2 *host, uint32_t variant,
                          const char *volume_label, uint32_t flags)
 {
     IfsFatfsIo io;
-    if (!host || host->structure_bytes < sizeof(*host) ||
-        !host->read_at || host->volume_bytes < 512u ||
-        !ifs_fs_host_v2_valid(host))
+    if (!ifs_fs_host_v2_valid(host) || host->volume_bytes < 512u)
         return IFS_FS_INVALID;
     if ((host->capabilities & IFS_FS_HOST_READ_ONLY) ||
         !(host->capabilities & IFS_FS_HOST_EXCLUSIVE) ||

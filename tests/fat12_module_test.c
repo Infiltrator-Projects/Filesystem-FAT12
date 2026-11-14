@@ -79,10 +79,18 @@ int main(void)
     CHECK(volume_ops->format(&host,12u,"NOT-SUPPORTED",0u)==IFS_FS_UNSUPPORTED);
     CHECK(volume_ops->format(&host,12u,NULL,1u)==IFS_FS_UNSUPPORTED);
     CHECK(writes==0u);
-    CHECK(volume_ops->format(&host,12u,NULL,0u)==IFS_FS_OK);
-    CHECK(writes>0u);
-
     uint32_t variant=0u;
+    {
+        volatile size_t prefix_bytes=IFS_FS_HOST_V2_BASE_BYTES;
+        IfsFsHostRuntimeV2 *prefix=malloc(prefix_bytes);
+        CHECK(prefix);
+        memcpy(prefix,&host,IFS_FS_HOST_V2_BASE_BYTES);
+        prefix->structure_bytes=IFS_FS_HOST_V2_BASE_BYTES;
+        CHECK(volume_ops->format(prefix,12u,NULL,0u)==IFS_FS_OK);
+        CHECK(core->probe(prefix,&variant)==IFS_FS_OK && variant==12u);
+        free(prefix);
+    }
+    CHECK(writes>0u);
     CHECK(core->probe(&host,&variant)==IFS_FS_OK && variant==12u);
     IfsFsVolumeInfoV2 info={0};
     info.structure_bytes=sizeof(info);
