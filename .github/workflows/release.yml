@@ -80,7 +80,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Infiltrator-Projects/Boot
-          ref: 93aed1b866f502ac61f6f23a20c524c7fad62812
+          ref: 8abd633620b983a85781b4eef493f807ede00dc9
           path: .qualification/Boot
       - name: Install generic ELF and actual firmware qualification tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils python3 gnu-efi qemu-system-x86 ovmf dosfstools mtools busybox-static cpio
