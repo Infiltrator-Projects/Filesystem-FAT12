@@ -10,6 +10,7 @@
 #include "classic_fat_module.h"
 #include "infiltratr/filesystem_module_v2.h"
 #include <string.h>
+#include <string.h>
 
 #if IFS_FATFS_ONLY != 12
 #error "The Common filesystem ABI pilot is owned by FAT12 only"
@@ -567,10 +568,8 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     IfsClassicFatVolume geometry;
     IfsFatfsIo io;
     uint64_t total=0, available=0;
-    if (!host || host->structure_bytes<sizeof(*host) || !host->read_at ||
-        !context || !info || info->structure_bytes<sizeof(*info) ||
-        host->volume_bytes<512u ||
-        !ifs_fs_host_v2_valid(host))
+    if (!ifs_fs_host_v2_valid(host) || !context || !info ||
+        info->structure_bytes<sizeof(*info) || host->volume_bytes<512u)
         return IFS_FS_INVALID;
     *context=0;
     if (common_session.mounted || selected || bound ||
@@ -580,7 +579,13 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     input.device_bytes=host->volume_bytes;
     if (ifs_classic_fat_probe(&input,&geometry)!=0)
         return IFS_FS_NOT_FOUND;
-    common_session.host=*host;
+    /* Common V2 hosts can omit later optional fields. Never read beyond
+     * the caller's declared prefix; retain only bytes this session owns. */
+    size_t host_bytes=host->structure_bytes<sizeof(common_session.host) ?
+        host->structure_bytes : sizeof(common_session.host);
+    memset(&common_session.host,0,sizeof(common_session.host));
+    memcpy(&common_session.host,host,host_bytes);
+    common_session.host.structure_bytes=(uint32_t)host_bytes;
     io.user=&common_session.host;
     io.partition_bytes=host->volume_bytes;
     io.sector_bytes=geometry.bytes_per_sector;

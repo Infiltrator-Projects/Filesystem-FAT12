@@ -87,6 +87,15 @@ int main(void)
     IfsFsVolumeInfoV2 info={0};
     info.structure_bytes=sizeof(info);
     void *mounted=NULL;
+    volatile size_t short_bytes=IFS_FS_HOST_V2_BASE_BYTES;
+    IfsFsHostRuntimeV2 *short_host=malloc(short_bytes);
+    CHECK(short_host);
+    memcpy(short_host,&host,IFS_FS_HOST_V2_BASE_BYTES);
+    short_host->structure_bytes=IFS_FS_HOST_V2_BASE_BYTES;
+    CHECK(core->mount(short_host,&mounted,&info)==IFS_FS_OK && mounted);
+    CHECK(core->unmount(mounted)==IFS_FS_OK);
+    free(short_host);
+    mounted=NULL;info.structure_bytes=sizeof(info);
     CHECK(core->mount(&host,&mounted,&info)==IFS_FS_OK && mounted);
     CHECK(info.variant==12u && info.block_bytes && info.free_bytes<=info.total_bytes);
     IfsFsVolumeInfoV2 measured={0};
