@@ -14,9 +14,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-typedef struct { int fd; uint64_t bytes; unsigned writes; } Disk;
+typedef struct { int fd; uint64_t bytes; uint32_t sector; unsigned writes; } Disk;
 static int bounds(const Disk *d,uint64_t at,uint32_t n)
-{ return at<=d->bytes && n<=d->bytes-at; }
+{ return d->sector && !(at%d->sector) && !(n%d->sector) &&
+         at<=d->bytes && n<=d->bytes-at; }
 static int rd(void *u,uint64_t at,void *p,uint32_t n)
 {
     Disk *d=u;
@@ -51,6 +52,7 @@ int main(int argc,char **argv)
     unsigned long bps=strtoul(argv[3],&end,10);
     if(errno || !end || *end || bps!=512u)
         return fail("fixture needs 512-byte logical sectors");
+    disk.sector=(uint32_t)bps;
 
     void *library=dlopen(argv[1],RTLD_NOW|RTLD_LOCAL);
     if(!library)return fail(dlerror());
@@ -171,6 +173,41 @@ int main(int argc,char **argv)
        vol->check(session,0u,&errors)!=IFS_FS_OK || errors!=0u ||
        fs->unmount(session)!=IFS_FS_OK || flush(&disk)!=0)
         return fail("enumerate/delete/final integrity");
+
+    /* The existing 512-byte FAT filesystem also runs over a strict 4 KiB
+     * host lease; sub-sector file updates must preserve neighbouring bytes. */
+    if (disk.bytes % 4096u == 0u) {
+        disk.sector=4096u;
+        io.logical_sector_bytes=io.physical_sector_bytes=4096u;
+        info.structure_bytes=sizeof info;
+        session=NULL;
+        if (fs->probe(&io,&variant)!=IFS_FS_OK ||
+            fs->mount(&io,&session,&info)!=IFS_FS_OK || !session ||
+            fs->create(session,"/FOURK.TXT",IFS_FS_ENTRY_FILE)!=IFS_FS_OK ||
+            fs->write(session,"/FOURK.TXT",0u,payload,sizeof payload)!=IFS_FS_OK ||
+            fs->read(session,"/FOURK.TXT",0u,readback,sizeof readback)!=IFS_FS_OK ||
+            memcmp(payload,readback,sizeof payload)!=0 ||
+            fs->remove(session,"/FOURK.TXT")!=IFS_FS_OK)
+            return fail("4 KiB host-sector V2 round trip");
+        /* Damage only the second FAT in this disposable file, then exercise
+         * the V2 repair's 128-byte requests through the 4 KiB host lease. */
+        unsigned char boot[512], original, damaged, verified;
+        if (pread(disk.fd,boot,sizeof boot,0)!=(ssize_t)sizeof boot || boot[16]<2u)
+            return fail("FAT mirror fixture geometry");
+        uint32_t reserved=(uint32_t)boot[14] | ((uint32_t)boot[15]<<8);
+        uint32_t fat_sectors=(uint32_t)boot[22] | ((uint32_t)boot[23]<<8);
+        uint32_t fs_sector=(uint32_t)boot[11] | ((uint32_t)boot[12]<<8);
+        uint64_t mirror=((uint64_t)reserved+fat_sectors)*fs_sector+128u;
+        if (mirror>=disk.bytes || pread(disk.fd,&original,1,(off_t)mirror)!=1)
+            return fail("FAT mirror fixture read");
+        damaged=(unsigned char)(original ^ 0x40u);
+        uint64_t repairs=0;
+        if (pwrite(disk.fd,&damaged,1,(off_t)mirror)!=1 ||
+            vol->repair(session,0u,&repairs)!=IFS_FS_OK || repairs==0 ||
+            pread(disk.fd,&verified,1,(off_t)mirror)!=1 || verified!=original ||
+            fs->unmount(session)!=IFS_FS_OK)
+            return fail("4 KiB host-sector FAT mirror repair");
+    }
 
     if(close(disk.fd)!=0 || dlclose(library)!=0)return fail("close");
     puts("FAT12-COMMON-FORMAT-READ-WRITE-RENAME-PERSISTENCE-PASS");

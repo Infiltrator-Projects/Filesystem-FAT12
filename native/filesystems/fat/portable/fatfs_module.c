@@ -426,6 +426,10 @@ static int get_modified_time(const char *path,uint16_t *date,uint16_t *time)
 /* Common V2 is the only exported FAT12 filesystem interface.
  * The FAT12 integrity scanner validates geometry; one FatFs engine owns
  * all mounts, file operations and formatting. No legacy API tables. */
+/* Format probes also issue short byte reads, so every engine request must
+ * pass through the bounded sector adapter required by the Common V2 host. */
+static int common_read(void *context, uint64_t offset,
+                       void *destination, uint32_t bytes);
 static int common_probe(const IfsFsHostRuntimeV2 *host,
                         uint32_t *detected_variant)
 {
@@ -434,8 +438,8 @@ static int common_probe(const IfsFsHostRuntimeV2 *host,
     if (!ifs_fs_host_v2_valid(host) || !detected_variant ||
         host->volume_bytes < 512u)
         return IFS_FS_INVALID;
-    input.read_at = host->read_at;
-    input.context = host->context;
+    input.read_at = common_read;
+    input.context = (void *)host;
     input.device_bytes = host->volume_bytes;
     if (ifs_classic_fat_probe(&input, &geometry) != 0)
         return IFS_FS_NOT_FOUND;
@@ -446,13 +450,13 @@ static int common_read(void *context, uint64_t offset,
                        void *destination, uint32_t bytes)
 {
     const IfsFsHostRuntimeV2 *host = (const IfsFsHostRuntimeV2 *)context;
-    return host->read_at(host->context, offset, destination, bytes);
+    return ifs_fs_host_read_bytes_v2(host, offset, destination, bytes)==IFS_FS_OK ? 0 : -1;
 }
 static int common_write(void *context, uint64_t offset,
                         const void *source, uint32_t bytes)
 {
     const IfsFsHostRuntimeV2 *host = (const IfsFsHostRuntimeV2 *)context;
-    return host->write_at(host->context, offset, source, bytes);
+    return ifs_fs_host_write_bytes_v2(host, offset, source, bytes)==IFS_FS_OK ? 0 : -1;
 }
 static int common_flush(void *context)
 {
@@ -518,7 +522,7 @@ static int common_guarded_write(void *context, uint64_t at,
     if ((host->capabilities & IFS_FS_HOST_READ_ONLY) ||
         !(host->capabilities & IFS_FS_HOST_EXCLUSIVE) || !host->write_at)
         return -1;
-    return host->write_at(host->context, at, data, length);
+    return common_write(context, at, data, length);
 }
 static int common_guarded_flush(void *context)
 {
@@ -571,8 +575,8 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     *context=0;
     if (common_session.mounted || selected || bound ||
         common_session.serial == UINTPTR_MAX) return IFS_FS_BUSY;
-    input.read_at=host->read_at;
-    input.context=host->context;
+    input.read_at=common_read;
+    input.context=(void *)host;
     input.device_bytes=host->volume_bytes;
     if (ifs_classic_fat_probe(&input,&geometry)!=0)
         return IFS_FS_NOT_FOUND;
@@ -748,8 +752,8 @@ static int common_check(void *context,uint32_t *errors)
     IfsClassicFatIo io;
     IfsClassicFatVolume geometry;
     if(!common_session_valid(context) || !errors) return IFS_FS_INVALID;
-    io.read_at=common_session.host.read_at;
-    io.context=common_session.host.context;
+    io.read_at=common_read;
+    io.context=&common_session.host;
     io.device_bytes=common_session.host.volume_bytes;
     if(ifs_classic_fat_probe(&io,&geometry)!=0)
         return IFS_FS_CORRUPT;
@@ -765,14 +769,14 @@ static int common_recover(void *context,uint32_t *repaired)
     int result;
     if(!common_session_valid(context) || !repaired) return IFS_FS_INVALID;
     if(!common_writable()) return IFS_FS_ACCESS;
-    io.read_at=common_session.host.read_at;
-    io.context=common_session.host.context;
+    io.read_at=common_read;
+    io.context=&common_session.host;
     io.device_bytes=common_session.host.volume_bytes;
     if(ifs_classic_fat_probe(&io,&geometry)!=0)
         return IFS_FS_CORRUPT;
     result=ifs_classic_fat_repair_mirrors(
-        &io,&geometry,common_session.host.write_at,
-        common_session.host.flush,repaired);
+        &io,&geometry,common_write,
+        common_flush,repaired);
     return result==0 ? IFS_FS_OK :
            result==1 ? IFS_FS_CORRUPT :
            result==2 ? IFS_FS_UNSUPPORTED : IFS_FS_IO_ERROR;
