@@ -39,12 +39,18 @@ int main(void)
     CHECK(ifs_fs_api_v2_valid(api,"fat12"));
     CHECK(api->group_mask ==
         (IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|
-         IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)));
+         IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)|
+         IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG)));
     const IfsFsCoreOpsV2 *core=
         (const IfsFsCoreOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_CORE);
     const IfsFsVolumeOpsV2 *volume_ops=
         (const IfsFsVolumeOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_VOLUME);
-    CHECK(core && volume_ops);
+    const IfsFsDefragOpsV2 *defrag=
+        (const IfsFsDefragOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_DEFRAG);
+    CHECK(core && volume_ops && defrag && defrag->map);
+    CHECK(defrag->header.capabilities==IFS_FS_DEFRAG_MAP &&
+          !defrag->plan && !defrag->execute && !defrag->verify &&
+          !defrag->recover && !defrag->release_plan);
     CHECK((core->header.capabilities &
           (IFS_FS_CORE_PROBE|IFS_FS_CORE_MOUNT|IFS_FS_CORE_STAT|
            IFS_FS_CORE_LIST|IFS_FS_CORE_READ|IFS_FS_CORE_WRITE|
@@ -125,6 +131,23 @@ int main(void)
     CHECK(core->rename(mounted,"/TEST/FILE.TXT","/TEST/RENAMED.TXT")==IFS_FS_OK);
     CHECK(core->stat(mounted,"/TEST/RENAMED.TXT",&entry)==IFS_FS_OK);
     CHECK(entry.size_bytes==sizeof(payload)-1u);
+    /* Extent mapping must match physical media exactly and never write it. */
+    IfsFsExtentV2 extents[4]={0};
+    uint32_t extent_count=99u;
+    unsigned map_writes=writes;
+    CHECK(defrag->map(mounted,"/TEST/RENAMED.TXT",0u,extents,4u,
+                      &extent_count)==IFS_FS_OK);
+    CHECK(extent_count==1u && extents[0].logical_offset==0u);
+    CHECK(extents[0].length==sizeof(payload)-1u);
+    CHECK(extents[0].physical_offset<sizeof(media) &&
+          extents[0].length<=sizeof(media)-extents[0].physical_offset);
+    CHECK(memcmp(media+(size_t)extents[0].physical_offset,payload,
+                 sizeof(payload)-1u)==0);
+    CHECK(writes==map_writes);
+    CHECK(defrag->map(mounted,"/TEST/RENAMED.TXT",1u,extents,4u,
+                      &extent_count)==IFS_FS_END && extent_count==0u);
+    CHECK(defrag->map(mounted,"/missing",0u,extents,4u,
+                      &extent_count)==IFS_FS_NOT_FOUND);
     CHECK(core->stat(mounted,"/../TEST/RENAMED.TXT",&entry)==IFS_FS_INVALID);
     uint64_t errors=UINT64_MAX;
     CHECK(volume_ops->check(mounted,0u,&errors)==IFS_FS_OK && errors==0u);

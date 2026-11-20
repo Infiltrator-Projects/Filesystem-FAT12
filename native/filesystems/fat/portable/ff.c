@@ -1246,8 +1246,12 @@ static DWORD get_fat (		/* 0xFFFFFFFF:Disk error, 1:Internal error, 2..0x7FFFFFF
 	return val;
 }
 
-
-
+/* Private bridge to the same FatFs FAT-chain walker used by f_read().
+ * Read-only Common V2 mapping never needs a separate filesystem parser. */
+DWORD ifs_fatfs_native_next_cluster (FIL* file, DWORD cluster)
+{
+	return file && file->obj.fs ? get_fat(&file->obj, cluster) : 1u;
+}
 
 #if !FF_FS_READONLY
 /*-----------------------------------------------------------------------*/

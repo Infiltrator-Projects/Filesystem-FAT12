@@ -10,7 +10,9 @@
 #include "classic_fat_module.h"
 #include "infiltratr/filesystem_module_v2.h"
 #include <string.h>
-#include <string.h>
+
+/* Source-owned FatFs internal allocation-chain accessor. */
+extern DWORD ifs_fatfs_native_next_cluster(FIL *file, DWORD cluster);
 
 #if IFS_FATFS_ONLY != 12
 #error "The Common filesystem ABI pilot is owned by FAT12 only"
@@ -879,6 +881,96 @@ static const IfsFsCoreOpsV2 common_v2_core = {
     .rename=common_rename,
     .truncate=common_truncate
 };
+/* Common V2 read-only DEFRAG MAP. A native FatFs FIL determines the
+ * authoritative first cluster; its own get_fat() follows allocated blocks.
+ * Validate the complete chain before accepting a map, including clusters
+ * outside a requested page, and never return success on a broken FAT chain.
+ */
+static int common_v2_extent_map(void *context,const char *path,
+                                uint64_t first_extent,IfsFsExtentV2 *out,
+                                uint32_t capacity,uint32_t *written)
+{
+    char native_path[4096];
+    FIL file;
+    uint64_t file_size,unit,clusters,extents_seen=0u;
+    uint32_t count=0u;
+    DWORD current,next,previous=0u;
+    int result;
+    FRESULT opened;
+    if(!written || !out || !capacity || !common_session_valid(context))
+        return IFS_FS_INVALID;
+    *written=0u;
+    result=common_path(path,native_path);
+    if(result!=IFS_FS_OK)return result;
+    if(native_path[2]=='/' && !native_path[3])return IFS_FS_INVALID;
+    opened=f_open(&file,native_path,FA_READ);
+    if(opened==FR_NO_FILE || opened==FR_NO_PATH)return IFS_FS_NOT_FOUND;
+    if(opened==FR_DENIED || opened==FR_INVALID_NAME)return IFS_FS_INVALID;
+    if(opened!=FR_OK)return IFS_FS_IO_ERROR;
+    result=IFS_FS_OK;
+    unit=(uint64_t)volume.csize*device.sector_bytes;
+    file_size=(uint64_t)f_size(&file);
+    if(!unit || !volume.csize || file_size>UINT32_MAX ||
+       volume.n_fatent<3u){result=IFS_FS_CORRUPT;goto done;}
+    if(!file_size){
+        result=file.obj.sclust?IFS_FS_CORRUPT:IFS_FS_END;
+        goto done;
+    }
+    clusters=(file_size+unit-1u)/unit;
+    current=file.obj.sclust;
+    if(clusters>volume.n_fatent-2u || current<2u ||
+       current>=volume.n_fatent){result=IFS_FS_CORRUPT;goto done;}
+    for(uint64_t i=0u;i<clusters;++i){
+        const uint64_t logical=i*unit;
+        const uint64_t length=file_size-logical<unit?
+            file_size-logical:unit;
+        const uint64_t sector=(uint64_t)volume.database+
+            (uint64_t)(current-2u)*volume.csize;
+        const uint64_t physical=sector*device.sector_bytes;
+        if(sector>=device.partition_bytes/device.sector_bytes ||
+           physical>device.partition_bytes ||
+           length>device.partition_bytes-physical){
+            result=IFS_FS_CORRUPT;goto done;
+        }
+        if(!i || current!=previous+1u){
+            /* Extent indices, not allocation-cluster indices. */
+            if(extents_seen>=first_extent && count<capacity){
+                out[count]=(IfsFsExtentV2){
+                    .logical_offset=logical,.physical_offset=physical,
+                    .length=length,.flags=0u,.reserved=0u
+                };
+                ++count;
+            }
+            ++extents_seen;
+        }else if(extents_seen>first_extent &&
+                  extents_seen-first_extent<=count){
+            out[count-1u].length+=length;
+        }
+        previous=current;
+        next=ifs_fatfs_native_next_cluster(&file,current);
+        if(next==UINT32_MAX){result=IFS_FS_IO_ERROR;goto done;}
+        if(i+1u<clusters){
+            if(next<2u || next>=volume.n_fatent || next>=0xff8u){
+                result=IFS_FS_CORRUPT;goto done;
+            }
+            current=next;
+        }else if(next<0xff8u || next>0xfffu){
+            result=IFS_FS_CORRUPT;goto done;
+        }
+    }
+    result=count?IFS_FS_OK:IFS_FS_END;
+done:
+    if(f_close(&file)!=FR_OK)result=IFS_FS_IO_ERROR;
+    if(result!=IFS_FS_OK)count=0u;
+    *written=count;
+    return result;
+}
+static const IfsFsDefragOpsV2 common_v2_defrag={
+    .header={IFS_FS_GROUP_ABI_V2,sizeof(IfsFsDefragOpsV2),
+             IFS_FS_GROUP_DEFRAG,0u,IFS_FS_DEFRAG_MAP},
+    .map=common_v2_extent_map
+};
+
 static const IfsFsGroupHeaderV2 *common_v2_query(
     uint32_t id, uint32_t minimum, uint32_t maximum)
 {
@@ -886,12 +978,14 @@ static const IfsFsGroupHeaderV2 *common_v2_query(
         return NULL;
     if (id==IFS_FS_GROUP_CORE) return &common_v2_core.header;
     if (id==IFS_FS_GROUP_VOLUME) return &common_v2_volume.header;
+    if (id==IFS_FS_GROUP_DEFRAG) return &common_v2_defrag.header;
     return NULL;
 }
 static const IfsFsModuleApiV2 common_v2_api={
     IFS_FS_COMMON_ABI_V2,sizeof(IfsFsModuleApiV2),"fat12",
     IFS_FS_PROFILE_HOSTED|IFS_FS_PROFILE_FREESTANDING,
-    IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME),
+    IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)|
+    IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG),
     common_v2_query
 };
 __attribute__((visibility("default")))
