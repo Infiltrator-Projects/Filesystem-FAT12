@@ -37,6 +37,10 @@ int main(void)
 {
     const IfsFsModuleApiV2 *api=infiltrator_filesystem_api_v2();
     CHECK(ifs_fs_api_v2_valid(api,"fat12"));
+    CHECK((api->runtime_profiles &
+          (IFS_FS_PROFILE_HOSTED|IFS_FS_PROFILE_FREESTANDING|IFS_FS_PROFILE_FIRMWARE)) ==
+          (IFS_FS_PROFILE_HOSTED|IFS_FS_PROFILE_FREESTANDING|IFS_FS_PROFILE_FIRMWARE));
+    CHECK(!(api->runtime_profiles & IFS_FS_PROFILE_KERNEL));
     CHECK(api->group_mask ==
         (IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|
          IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)|
