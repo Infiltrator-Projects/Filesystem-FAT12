@@ -184,7 +184,8 @@ def release_source_files():
     for p in paths:
         q = p.as_posix()
         selected = (
-            q.startswith("native/filesystems/fat/") or
+            (q.startswith("native/filesystems/fat/") and
+             not q.startswith("native/filesystems/fat/defrag/")) or
             q.startswith("src/infiltratr-common/include/") or
             q.startswith("native/include/") or
             q.startswith("standalone/") or q.startswith("docs/") or
