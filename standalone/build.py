@@ -15,11 +15,9 @@ DEF = BASE / "defrag"
 MOD = BASE / "module"
 PORT = BASE / "portable"
 SOURCES = [MOD / "classic_fat_module.c"] + [
-    PORT / name for name in ("fatfs_module.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
-] + [DEF / name for name in ("writer.c", "fat_analysis.c", "fat_directory.c",
-    "fat_relayout.c", "fat_io.c", "fat_journal.c", "fat_relocation.c",
-    "fat_volume.c", "fat_defrag_module.c")]
-INCLUDES = [MOD, PORT, DEF, DEF / "host", ROOT / "native/include", ROOT / "src/infiltratr-common/include"]
+    PORT / n for n in ("fatfs_module.c", "ff.c", "ffunicode.c", "fatfs_libc.c")
+]
+INCLUDES = [MOD, PORT, ROOT / "native/include", ROOT / "src/infiltratr-common/include"]
 EXPORTS = ("infiltrator_filesystem_api_v2",)
 
 def run(args):
@@ -38,7 +36,7 @@ def inspect(module):
     meta = subprocess.check_output(["readelf", "-p", ".ifsmeta", str(module)], text=True)
     if f"IFS-MODULE:fat{WIDTH}:common2" not in meta:
         raise RuntimeError("Missing canonical Common V2 filesystem identity")
-    for obsolete in ("infiltrator_filesystem_api_v1",
+    for obsolete in ("infiltrator_filesystem_defrag_v1", "infiltrator_filesystem_api_v1",
                      "infiltrator_filesystem_module_v1",
                      "infiltrator_filesystem_module_v3",
                      "infiltrator_filesystem_module_v4",
@@ -81,7 +79,7 @@ def build(profile, module):
              "-fno-tree-loop-distribute-patterns", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=0",
              "-ffreestanding", "-fvisibility=hidden", "-D_GNU_SOURCE",
              "-D_FILE_OFFSET_BITS=64", f"-DIFS_FATFS_ONLY={WIDTH}",
-             f"-DIFS_FAT_DEFRAG_BITS={WIDTH}", f"-DIFS_CLASSIC_FAT_BITS={WIDTH}"]
+             f"-DIFS_CLASSIC_FAT_BITS={WIDTH}"]
     if profile == "portable":
         flags += ["-O2", "-march=x86-64", "-mtune=generic"]
     else:
