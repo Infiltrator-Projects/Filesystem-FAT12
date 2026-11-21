@@ -920,7 +920,47 @@ static int common_v2_extent_map(void *context,const char *path,
     *written=0u;
     result=common_path(path,native_path);
     if(result!=IFS_FS_OK)return result;
-    if(native_path[2]=='/' && !native_path[3])return IFS_FS_INVALID;
+    if(native_path[2]=='/' && !native_path[3]){
+        /* "/" requests the volume's allocated-data run map, not a file
+         * chain. The native FAT walker supplies authoritative allocations. */
+        FIL table={0};
+        table.obj.fs=&volume;
+        uint64_t seen=0u, begin=0u, bytes=0u;
+        uint32_t mapped=0u;
+        const uint64_t allocation_unit=
+            (uint64_t)volume.csize*device.sector_bytes;
+        if(!allocation_unit || volume.n_fatent<3u)return IFS_FS_CORRUPT;
+        for(uint32_t cluster=2u;cluster<volume.n_fatent;++cluster){
+            const DWORD value=ifs_fatfs_native_next_cluster(&table,cluster);
+            if(value==UINT32_MAX || value==1u){
+                *written=0u;
+                return value==UINT32_MAX?IFS_FS_IO_ERROR:IFS_FS_CORRUPT;
+            }
+            if(value && !bytes)
+                begin=(uint64_t)(cluster-2u)*allocation_unit;
+            if(value)
+                bytes+=allocation_unit;
+            if((!value || cluster+1u==volume.n_fatent) && bytes){
+                if(seen>=first_extent && mapped<capacity){
+                    const uint64_t physical=
+                        (uint64_t)volume.database*device.sector_bytes+begin;
+                    if(physical>device.partition_bytes ||
+                       bytes>device.partition_bytes-physical){
+                        *written=0u;
+                        return IFS_FS_CORRUPT;
+                    }
+                    out[mapped++]=(IfsFsExtentV2){
+                        .logical_offset=begin,.physical_offset=physical,
+                        .length=bytes,.flags=0u,.reserved=0u};
+                }
+                ++seen;
+                bytes=0u;
+                if(mapped==capacity)break;
+            }
+        }
+        *written=mapped;
+        return mapped?IFS_FS_OK:IFS_FS_END;
+    }
     opened=f_open(&file,native_path,FA_READ);
     if(opened==FR_NO_FILE || opened==FR_NO_PATH)return IFS_FS_NOT_FOUND;
     if(opened==FR_DENIED || opened==FR_INVALID_NAME)return IFS_FS_INVALID;
