@@ -39,7 +39,7 @@ jobs:
           sudo python3 standalone/check-documentation-upgrade.py dist/*.deb
           dpkg-deb --contents dist/*.deb
           bash dist/*.run --help
-          sudo bash dist/*.run --profile aggressive --system-package-mode
+          sudo bash dist/*.run --profile aggressive
           version=$(cat VERSION)
           test "$(dpkg-query -W -f='${Version}' infiltrator-filesystem-fat12)" = "${version}+native1"
           python3 standalone/build.py --profile portable --output build/FAT12.so --check
@@ -130,60 +130,37 @@ jobs:
           python3 "$boot/tests/test_so_boot.py" --boot "$boot/refind/refind_x64.efi" \
             --module "$root/build/FAT12.so" --kernel "$kernel" --reject-module \
             --output "$root/build/boot-reject"
-  native-drivers:
-    needs: no-fuse
-    uses: ./.github/workflows/drivers.yml
   manual-package:
     needs: qualify
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: fat12-qualified-${{ github.sha }}
           path: dist
-      - name: Prepare the pinned Linux build
+      - name: Build the normal FAT12 native RUN without a kernel adapter
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential binutils cmake git pkg-config libssl-dev libsqlite3-dev dpkg-dev bc bison flex libelf-dev kmod dosfstools mtools exfatprogs
-          curl --fail --location --retry 5 https://codeload.github.com/gregkh/linux/tar.gz/f717995cb7dcd8998ab15516b8006aea09cfde0d -o "$RUNNER_TEMP/linux.tar.gz"
-          mkdir -p "$RUNNER_TEMP/linux"
-          tar -xzf "$RUNNER_TEMP/linux.tar.gz" -C "$RUNNER_TEMP/linux" --strip-components=1
-          kernel="$RUNNER_TEMP/linux"
-          make -C "$kernel" defconfig
-          "$kernel/scripts/config" --file "$kernel/.config" --enable MODULES --disable WERROR --disable DEBUG_INFO --enable MSDOS_FS --disable VFAT_FS --enable NLS --enable NLS_CODEPAGE_437 --enable NLS_ISO8859_1
-          make -C "$kernel" olddefconfig
-          make -C "$kernel" -j2 bzImage modules
-          test -s "$kernel/Module.symvers"
-          test "$(make -s -C "$kernel" kernelrelease)" = 6.12.107
-      - name: Compile all three files through the manual RUN
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash dist/*.run --profile portable --kernel-build "$RUNNER_TEMP/linux" --build-only --output "$RUNNER_TEMP/manual"
-          python3 standalone/check-package.py "$RUNNER_TEMP"/manual/*.deb --profile portable --kernel-release 6.12.107
-          dpkg-deb -x "$RUNNER_TEMP"/manual/*.deb "$RUNNER_TEMP/manual-root"
+          sudo apt-get install -y --no-install-recommends build-essential binutils cmake git pkg-config libssl-dev libsqlite3-dev dpkg-dev dosfstools mtools
+          bash dist/*.run --profile portable --build-only --output "$RUNNER_TEMP/manual"
+          python3 standalone/check-package.py "$RUNNER_TEMP"/manual/*.deb --profile portable
+          mkdir -p "$RUNNER_TEMP/manual-root" "$RUNNER_TEMP/portable-root"
           dpkg-deb -x dist/*.deb "$RUNNER_TEMP/portable-root"
-          repository=$(python3 -c 'import sys; sys.path.insert(0,"standalone"); import build; print(build.REPO)')
-          identifier=$(printf '%s' "$repository" | sed 's/^Filesystem-//' | tr '[:upper:]' '[:lower:]')
-          manual=$(python3 -c 'import sys; sys.path.insert(0,"standalone"); import build; print(build.PDF.name)')
-          cmp "$RUNNER_TEMP/manual-root/System/Resources/Documentation/$repository.pdf" "$RUNNER_TEMP/portable-root/System/Resources/Documentation/$repository.pdf"
-          mkdir -p build/qualified
-          install -m 0644 "$RUNNER_TEMP/manual-root/System/Kernel/Filesystems/$identifier.ko" "build/qualified/$identifier-linux-6.12.107.ko"
-          package=$(find dist -maxdepth 1 -name '*.deb' -print -quit)
-          python3 standalone/release.py bundle-kernel "$package" "build/qualified/$identifier-linux-6.12.107.ko" "build/qualified/$(basename "$package")"
-          python3 standalone/check-package.py build/qualified/*.deb --profile portable --kernel-release 6.12.107
-      - uses: actions/upload-artifact@v4
-        with:
-          name: qualified-kernel-package
-          path: build/qualified/*
-          if-no-files-found: error
-
+          dpkg-deb -x "$RUNNER_TEMP"/manual/*.deb "$RUNNER_TEMP/manual-root"
+          for root in "$RUNNER_TEMP/portable-root" "$RUNNER_TEMP/manual-root"; do
+            test "$(find "$root" -type f | wc -l)" -eq 2
+            test -s "$root/System/Filesystems/FAT12.so"
+            nm -D --defined-only "$root/System/Filesystems/FAT12.so" | grep -F infiltrator_filesystem_api_v2
+            test "$(find "$root" -name '*.ko' -o -name '*.efi' | wc -l)" -eq 0
+          done
+          cmp "$RUNNER_TEMP/manual-root/System/Resources/Documentation/Filesystem-FAT12.pdf" \
+              "$RUNNER_TEMP/portable-root/System/Resources/Documentation/Filesystem-FAT12.pdf"
   publish:
-    needs: [qualify, boot-consumer, native-drivers, manual-package]
+    needs: [qualify, boot-consumer, manual-package]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
@@ -194,15 +171,7 @@ jobs:
         with:
           name: fat12-qualified-${{ github.sha }}
           path: dist
-      - uses: actions/download-artifact@v4
-        with:
-          name: fat12-fat16-efi-experimental
-          path: build/native
-      - uses: actions/download-artifact@v4
-        with:
-          name: fat12-fat16-ko-6.12.107-qemu-only
-          path: build/native
-      - name: Publish exact qualified release once
+      - name: Publish qualified Common V2 SO and native installer only
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -211,18 +180,15 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
           version=$(cat VERSION)
           tag="v${version}"
-          test -s build/native/FAT12.efi
-          test -s build/native/fat12.ko
+          test "$(find dist -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
+          test "$(find dist -maxdepth 1 -type f -name '*.run' | wc -l)" -eq 1
+          test "$(find dist -type f | wc -l)" -eq 2
+          test "$(find dist -name '*.ko' -o -name '*.efi' | wc -l)" -eq 0
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Immutable $tag already exists; no release update required."
+            echo "Immutable $tag exists; no release update required."
             exit 0
           fi
-          mkdir -p build/bundled
-          package=$(find dist -maxdepth 1 -name '*.deb' -print -quit)
-          python3 standalone/release.py bundle-kernel "$package" build/native/fat12.ko "build/bundled/$(basename "$package")"
-          python3 standalone/check-package.py build/bundled/*.deb --profile portable --kernel-release 6.12.107
-          install -m 0644 build/bundled/*.deb dist/
           sha256sum dist/*.deb dist/*.run
           gh release create "$tag" dist/*.deb dist/*.run \
             --target "$GITHUB_SHA" --title "Filesystem FAT12 ${version}" \
-            --notes "Independent FAT12.so portable Debian package and native source-first RUN. GitHub provides the automatic source archive. Transitional EFI and Linux kernel compatibility drivers remain qualification/build components, not separate published release assets; the pinned Linux 6.12.107 driver must be rebuilt for other kernels. Physical-drive safety, arbitrary-root boot, and generic signed kernel installation are NOT certified."
+            --notes "One canonical Common V2 FAT12.so and source-embedded native installer. No filesystem-specific kernel module or independent EFI driver. Release requires BOOT consumer acceptance."
