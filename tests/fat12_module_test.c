@@ -20,6 +20,11 @@ static int read_media(void *ctx,uint64_t at,void *buf,uint32_t length)
     memcpy(buf,media+(size_t)at,length);
     return 0;
 }
+static int fail_read(void *ctx,uint64_t at,void *buf,uint32_t length)
+{
+    (void)ctx;(void)at;(void)buf;(void)length;
+    return -1;
+}
 static int write_media(void *ctx,uint64_t at,const void *buf,uint32_t length)
 {
     (void)ctx;
@@ -78,6 +83,16 @@ int main(void)
     host.allocate=allocate;
     host.release=release;
     CHECK(ifs_fs_host_v2_valid(&host));
+    host.read_at=fail_read;
+    uint32_t failed_variant=99u;
+    IfsFsVolumeInfoV2 failed_info={.structure_bytes=sizeof(failed_info)};
+    void *failed_mount=(void *)(uintptr_t)1u;
+    CHECK(core->probe(&host,&failed_variant)==IFS_FS_IO_ERROR &&
+          failed_variant==0u);
+    CHECK(core->mount(&host,&failed_mount,&failed_info)==IFS_FS_IO_ERROR &&
+          failed_mount==NULL);
+    host.read_at=read_media;
+    CHECK(core->probe(&host,&failed_variant)==IFS_FS_NOT_FOUND);
     CHECK(volume_ops->format(&host,12u,NULL,0u)==IFS_FS_ACCESS);
     CHECK(writes==0u);
 

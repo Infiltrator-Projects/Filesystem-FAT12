@@ -432,19 +432,35 @@ static int get_modified_time(const char *path,uint16_t *date,uint16_t *time)
  * pass through the bounded sector adapter required by the Common V2 host. */
 static int common_read(void *context, uint64_t offset,
                        void *destination, uint32_t bytes);
+/* Track host failures separately from malformed or foreign media. */
+typedef struct {
+    const IfsFsHostRuntimeV2 *host;
+    int error;
+} IfsFatV2ProbeIo;
+static int common_probe_read(void *context, uint64_t at,
+                             void *destination, uint32_t bytes)
+{
+    IfsFatV2ProbeIo *io=(IfsFatV2ProbeIo *)context;
+    const int rc=ifs_fs_host_read_bytes_v2(io->host,at,destination,bytes);
+    if(rc!=IFS_FS_OK)
+        io->error=rc==IFS_FS_INVALID?IFS_FS_CORRUPT:rc;
+    return rc==IFS_FS_OK?0:-1;
+}
 static int common_probe(const IfsFsHostRuntimeV2 *host,
                         uint32_t *detected_variant)
 {
     IfsClassicFatIo input;
     IfsClassicFatVolume geometry;
+    IfsFatV2ProbeIo probe_io={host,IFS_FS_OK};
     if (!ifs_fs_host_v2_valid(host) || !detected_variant ||
         host->volume_bytes < 512u)
         return IFS_FS_INVALID;
-    input.read_at = common_read;
-    input.context = (void *)host;
+    *detected_variant=0u;
+    input.read_at = common_probe_read;
+    input.context = &probe_io;
     input.device_bytes = host->volume_bytes;
     if (ifs_classic_fat_probe(&input, &geometry) != 0)
-        return IFS_FS_NOT_FOUND;
+        return probe_io.error==IFS_FS_OK?IFS_FS_NOT_FOUND:probe_io.error;
     *detected_variant = 12u;
     return IFS_FS_OK;
 }
@@ -569,6 +585,7 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
 {
     IfsClassicFatIo input;
     IfsClassicFatVolume geometry;
+    IfsFatV2ProbeIo probe_io={host,IFS_FS_OK};
     IfsFatfsIo io;
     uint64_t total=0, available=0;
     if (!ifs_fs_host_v2_valid(host) || !context || !info ||
@@ -577,11 +594,11 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     *context=0;
     if (common_session.mounted || selected || bound ||
         common_session.serial == UINTPTR_MAX) return IFS_FS_BUSY;
-    input.read_at=common_read;
-    input.context=(void *)host;
+    input.read_at=common_probe_read;
+    input.context=&probe_io;
     input.device_bytes=host->volume_bytes;
     if (ifs_classic_fat_probe(&input,&geometry)!=0)
-        return IFS_FS_NOT_FOUND;
+        return probe_io.error==IFS_FS_OK?IFS_FS_NOT_FOUND:probe_io.error;
     /* Common V2 hosts can omit later optional fields. Never read beyond
      * the caller's declared prefix; retain only bytes this session owns. */
     size_t host_bytes=host->structure_bytes<sizeof(common_session.host) ?
