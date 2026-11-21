@@ -452,10 +452,11 @@ static int common_probe(const IfsFsHostRuntimeV2 *host,
     IfsClassicFatIo input;
     IfsClassicFatVolume geometry;
     IfsFatV2ProbeIo probe_io={host,IFS_FS_OK};
-    if (!ifs_fs_host_v2_valid(host) || !detected_variant ||
-        host->volume_bytes < 512u)
+    if (!detected_variant)
         return IFS_FS_INVALID;
-    *detected_variant=0u;
+    *detected_variant = 0u;
+    if (!ifs_fs_host_v2_valid(host) || host->volume_bytes < 512u)
+        return IFS_FS_INVALID;
     input.read_at = common_probe_read;
     input.context = &probe_io;
     input.device_bytes = host->volume_bytes;
