@@ -14,13 +14,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-typedef struct { int fd; uint64_t bytes; uint32_t sector; unsigned writes; } Disk;
+typedef struct { int fd; uint64_t bytes; uint32_t sector; unsigned writes; int fail_reads; unsigned failed_reads; } Disk;
 static int bounds(const Disk *d,uint64_t at,uint32_t n)
 { return d->sector && !(at%d->sector) && !(n%d->sector) &&
          at<=d->bytes && n<=d->bytes-at; }
 static int rd(void *u,uint64_t at,void *p,uint32_t n)
 {
     Disk *d=u;
+    if (d->fail_reads) { ++d->failed_reads; return -1; }
     return bounds(d,at,n) &&
         pread(d->fd,p,n,(off_t)at)==(ssize_t)n?0:-1;
 }
@@ -152,6 +153,21 @@ int main(int argc,char **argv)
        fs->stat(session,renamed,&entry)!=IFS_FS_OK ||
        entry.size_bytes!=1000u)
         return fail("create/write/read/Unicode/rename/truncate");
+    /* Verify a failed host read cannot be reported as a missing file.
+     * Directory entries may be cached; assert STAT only when I/O occurs. */
+    disk.fail_reads=1;
+    disk.failed_reads=0u;
+    int fault_stat=fs->stat(session,renamed,&entry);
+    if (disk.failed_reads && fault_stat!=IFS_FS_IO_ERROR)
+        return fail("STAT disguised media I/O failure as missing path");
+    disk.failed_reads=0u;
+    if (fs->read(session,renamed,0u,readback,1000u)!=IFS_FS_IO_ERROR ||
+        !disk.failed_reads)
+        return fail("read failed to propagate the host I/O error");
+    disk.fail_reads=0;
+    if (fs->stat(session,"/SUBDIR/ABSENT.TXT",&entry)!=IFS_FS_NOT_FOUND ||
+        fs->read(session,renamed,0u,readback,1000u)!=IFS_FS_OK)
+        return fail("fault recovery confused a missing FAT12 path");
 
     {
         const IfsFsDefragOpsV2 *defrag=

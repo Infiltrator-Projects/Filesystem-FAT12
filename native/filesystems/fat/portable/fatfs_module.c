@@ -465,11 +465,17 @@ static int common_probe(const IfsFsHostRuntimeV2 *host,
     *detected_variant = 12u;
     return IFS_FS_OK;
 }
+/* FatFs converts media failures into FRESULT; retain their originating V2
+ * error so STAT never disguises a failed firmware read as a missing file. */
+static int common_read_failure = IFS_FS_OK;
 static int common_read(void *context, uint64_t offset,
                        void *destination, uint32_t bytes)
 {
     const IfsFsHostRuntimeV2 *host = (const IfsFsHostRuntimeV2 *)context;
-    return ifs_fs_host_read_bytes_v2(host, offset, destination, bytes)==IFS_FS_OK ? 0 : -1;
+    const int result=ifs_fs_host_read_bytes_v2(host, offset, destination, bytes);
+    if (result!=IFS_FS_OK && common_read_failure==IFS_FS_OK)
+        common_read_failure=result==IFS_FS_INVALID?IFS_FS_CORRUPT:result;
+    return result==IFS_FS_OK?0:-1;
 }
 static int common_write(void *context, uint64_t offset,
                         const void *source, uint32_t bytes)
@@ -614,11 +620,14 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     io.write_at=common_guarded_write;
     io.flush=common_guarded_flush;
     io.fat_timestamp=common_timestamp;
+    common_read_failure=IFS_FS_OK;
     if (attach(&io)!=0)
-        return IFS_FS_CORRUPT;
+        return common_read_failure!=IFS_FS_OK ?
+            common_read_failure:IFS_FS_CORRUPT;
     if (volume_space(&total,&available)!=0) {
         (void)detach();
-        return IFS_FS_IO_ERROR;
+        return common_read_failure!=IFS_FS_OK ?
+            common_read_failure:IFS_FS_IO_ERROR;
     }
     common_session.active_handle=++common_session.serial;
     common_session.mounted=1;
@@ -669,8 +678,10 @@ static int common_stat(void *context, const char *path, IfsFsEntryV2 *out)
     if (!common_session_valid(context)) return IFS_FS_INVALID;
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
     if (p[2]=='/' && !p[3]) return common_entry(out, &entry, 1);
+    common_read_failure=IFS_FS_OK;
     if (stat_path(p,&entry)!=0)
-        return IFS_FS_NOT_FOUND;
+        return common_read_failure!=IFS_FS_OK ?
+            common_read_failure:IFS_FS_NOT_FOUND;
     return common_entry(out,&entry,0);
 }
 static int common_directory_entry(void *context, const char *path,
@@ -681,9 +692,11 @@ static int common_directory_entry(void *context, const char *path,
     int rc;
     if (!common_session_valid(context)) return IFS_FS_INVALID;
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
+    common_read_failure=IFS_FS_OK;
     rc=nth_dir_entry(p,index,&entry);
     if (rc==1) return IFS_FS_END;
-    if (rc!=0) return IFS_FS_IO_ERROR;
+    if (rc!=0) return common_read_failure!=IFS_FS_OK ?
+        common_read_failure:IFS_FS_IO_ERROR;
     return common_entry(out,&entry,0);
 }
 static int common_file_read(void *context, const char *path, uint64_t offset,
@@ -696,9 +709,11 @@ static int common_file_read(void *context, const char *path, uint64_t offset,
     if (offset>UINT32_MAX || length>UINT32_MAX-offset)
         return IFS_FS_UNSUPPORTED; /* FAT12 on-media file offsets are 32-bit. */
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
+    common_read_failure=IFS_FS_OK;
     return file_read(p,(uint32_t)offset,
                                                      destination,length)==0 ?
-           IFS_FS_OK : IFS_FS_IO_ERROR;
+           IFS_FS_OK : (common_read_failure!=IFS_FS_OK ?
+             common_read_failure:IFS_FS_IO_ERROR);
 }
 static int common_file_write(void *context, const char *path, uint64_t offset,
                              const void *source, uint32_t length)
