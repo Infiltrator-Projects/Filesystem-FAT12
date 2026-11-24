@@ -18,8 +18,17 @@ typedef struct { int fd; uint64_t bytes; uint32_t sector; unsigned writes; int f
 static int bounds(const Disk *d,uint64_t at,uint32_t n)
 { return d->sector && !(at%d->sector) && !(n%d->sector) &&
          at<=d->bytes && n<=d->bytes-at; }
+static const IfsFsCoreOpsV2 *unmount_during_read;
+static void *active_volume;
+static int observed_unmount;
 static int rd(void *u,uint64_t at,void *p,uint32_t n)
 {
+    if (unmount_during_read) {
+        const IfsFsCoreOpsV2 *ops=unmount_during_read;
+        unmount_during_read=NULL;
+        observed_unmount=ops->unmount(active_volume);
+        if (observed_unmount!=IFS_FS_BUSY) return -1;
+    }
     Disk *d=u;
     if (d->fail_reads) { ++d->failed_reads; return -1; }
     return bounds(d,at,n) &&
@@ -153,6 +162,13 @@ int main(int argc,char **argv)
        fs->stat(session,renamed,&entry)!=IFS_FS_OK ||
        entry.size_bytes!=1000u)
         return fail("create/write/read/Unicode/rename/truncate");
+    /* Disk callback attempts to unmount during a real data transfer. */
+    active_volume=session;
+    unmount_during_read=fs;
+    observed_unmount=IFS_FS_INVALID;
+    if (fs->read(session,renamed,0u,readback,1000u)!=IFS_FS_OK ||
+        unmount_during_read || observed_unmount!=IFS_FS_BUSY)
+        return fail("reentrant unmount must report BUSY");
     /* Verify a failed host read cannot be reported as a missing file.
      * Directory entries may be cached; assert STAT only when I/O occurs. */
     disk.fail_reads=1;
