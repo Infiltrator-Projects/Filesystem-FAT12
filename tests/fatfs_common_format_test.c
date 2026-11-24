@@ -258,6 +258,36 @@ int main(int argc,char **argv)
        memcmp(payload,readback,1000u)!=0 ||
        fs->read(session,"/../SUBDIR/Renamed File.txt",0,readback,1)!=IFS_FS_INVALID)
         return fail("remount persistence or path traversal check");
+    /* Rename the native volume, then prove persistence under a fresh
+     * read-only lease and reject attempts to modify that lease. */
+    {
+        char new_label[64],small[2]={'X','X'};
+        uint32_t bytes=UINT32_MAX;
+        if (!vol->set_label || !vol->label ||
+            vol->set_label(session,"NATIVE FAT")!=IFS_FS_OK ||
+            vol->label(session,new_label,sizeof(new_label),&bytes)!=IFS_FS_OK ||
+            strcmp(new_label,"NATIVE FAT") || bytes!=10u ||
+            vol->label(session,small,sizeof(small),&bytes)!=IFS_FS_NO_SPACE ||
+            bytes || small[0]!='X' || small[1]!='X')
+            return fail("native FAT volume label update and capacity");
+        unsigned before=disk.writes;
+        if (vol->set_label(session,"BAD:LABEL")!=IFS_FS_INVALID ||
+            vol->set_label(session,"0123456789AB")!=IFS_FS_INVALID ||
+            disk.writes!=before || fs->unmount(session)!=IFS_FS_OK)
+            return fail("invalid FAT volume label changed media");
+        IfsFsHostRuntimeV2 ro=io;
+        ro.capabilities=IFS_FS_HOST_READ_ONLY;ro.write_at=NULL;ro.flush=NULL;
+        if (fs->mount(&ro,&session,&info)!=IFS_FS_OK ||
+            vol->label(session,new_label,sizeof(new_label),&bytes)!=IFS_FS_OK ||
+            strcmp(new_label,"NATIVE FAT") ||
+            vol->set_label(session,"DENIED")!=IFS_FS_ACCESS ||
+            fs->unmount(session)!=IFS_FS_OK ||
+            fs->mount(&io,&session,&info)!=IFS_FS_OK ||
+            vol->set_label(session,"")!=IFS_FS_OK ||
+            vol->label(session,new_label,sizeof(new_label),&bytes)!=IFS_FS_OK ||
+            bytes || new_label[0])
+            return fail("FAT volume label remount, protection and deletion");
+    }
 
     int found=0;
     for(uint32_t index=0;index<32u;++index) {

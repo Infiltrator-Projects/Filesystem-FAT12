@@ -1037,14 +1037,41 @@ static int guarded_v2_label(void *mounted, char *out, uint32_t capacity, uint32_
     return v2_leave_operation(v2_label(mounted,out,capacity,bytes));
 }
 
+/* FAT volume labels occupy an OEM-encoded, 11-byte root-directory entry.
+ * Let the existing native engine perform conversion, case folding and
+ * allocation. Reject controls and drive prefixes before it can parse a
+ * truncated name or switch logical drives. No raw boot-sector edits. */
+static int v2_set_label(void *mounted,const char *label)
+{
+    if (!v2_enter_operation()) return IFS_FS_BUSY;
+    if (!common_session_valid(mounted) || !label)
+        return v2_leave_operation(IFS_FS_INVALID);
+    if (!common_writable()) return v2_leave_operation(IFS_FS_ACCESS);
+    uint32_t n=0u;
+    while (n<=44u && label[n]) {
+        unsigned char c=(unsigned char)label[n++];
+        if (c<32u || c==127u || c==':')
+            return v2_leave_operation(IFS_FS_INVALID);
+    }
+    if (n>44u) return v2_leave_operation(IFS_FS_INVALID);
+    FRESULT rc=f_setlabel(label);
+    if (rc==FR_OK) return v2_leave_operation(IFS_FS_OK);
+    if (rc==FR_INVALID_NAME || rc==FR_INVALID_PARAMETER)
+        return v2_leave_operation(IFS_FS_INVALID);
+    if (rc==FR_DENIED) return v2_leave_operation(IFS_FS_NO_SPACE);
+    if (rc==FR_WRITE_PROTECTED) return v2_leave_operation(IFS_FS_ACCESS);
+    if (rc==FR_INT_ERR) return v2_leave_operation(IFS_FS_CORRUPT);
+    return v2_leave_operation(IFS_FS_IO_ERROR);
+}
+
 __attribute__((used,section(".ifsmeta")))
 static const char common_v2_identity[]="IFS-MODULE:fat12:common2";
 static const IfsFsVolumeOpsV2 common_v2_volume={
     .header={IFS_FS_GROUP_ABI_V2,sizeof(IfsFsVolumeOpsV2),
              IFS_FS_GROUP_VOLUME,0u,
-             IFS_FS_VOLUME_QUERY|IFS_FS_VOLUME_LABEL_GET|IFS_FS_VOLUME_SYNC|IFS_FS_VOLUME_CHECK|
+             IFS_FS_VOLUME_QUERY|IFS_FS_VOLUME_LABEL_GET|IFS_FS_VOLUME_LABEL_SET|IFS_FS_VOLUME_SYNC|IFS_FS_VOLUME_CHECK|
              IFS_FS_VOLUME_REPAIR|IFS_FS_VOLUME_FORMAT},
-    .label=guarded_v2_label,
+    .label=guarded_v2_label,.set_label=v2_set_label,
     .query=guarded_v2_query_volume,
     .sync=guarded_common_v2_sync,
     .check=guarded_common_v2_check,
