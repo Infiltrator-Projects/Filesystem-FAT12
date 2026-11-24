@@ -48,6 +48,39 @@ static int fail(const char *message)
 static void *allocate_at(void *ctx,size_t n) {(void)ctx;return malloc(n);}
 static void release_at(void *ctx,void *p) {(void)ctx;free(p);}
 
+/* Inspect the short directory entry directly, independently of FatFs. */
+static uint64_t fixture_clock(void *ctx)
+{ (void)ctx; return UINT64_C(1709212456000000000); }
+static uint32_t read16(const unsigned char *p)
+{ return (uint32_t)p[0]|((uint32_t)p[1]<<8); }
+static uint32_t read32(const unsigned char *p)
+{ return read16(p)|(read16(p+2)<<16); }
+static int check_clock_entry(Disk *disk)
+{
+    unsigned char boot[512], root[4096];
+    if (pread(disk->fd,boot,sizeof boot,0)!=(ssize_t)sizeof boot) return -1;
+    uint32_t sector=read16(boot+11), reserved=read16(boot+14), fats=boot[16];
+    uint32_t fat_sectors=read16(boot+22);
+    if (!fat_sectors) fat_sectors=read32(boot+36);
+    if (sector<512u || sector>sizeof root || !fat_sectors) return -1;
+    uint64_t root_sector=(uint64_t)reserved+(uint64_t)fats*fat_sectors;
+    if (!read16(boot+17)) {
+        uint32_t cluster=read32(boot+44);
+        if (cluster<2u || !boot[13]) return -1;
+        root_sector+=(uint64_t)(cluster-2u)*boot[13];
+    }
+    if (pread(disk->fd,root,sector,(off_t)(root_sector*sector))!=(ssize_t)sector) return -1;
+    for (uint32_t i=0;i+32u<=sector;i+=32u) {
+        if (!root[i]) break;
+        if (!memcmp(root+i,"CLOCK   TXT",11u)) {
+            const uint32_t date=((2024u-1980u)<<9)|(2u<<5)|29u;
+            const uint32_t time=(13u<<11)|(14u<<5)|8u;
+            return read16(root+i+24u)==date && read16(root+i+22u)==time?0:-1;
+        }
+    }
+    return -1;
+}
+
 int main(int argc,char **argv)
 {
     if(argc!=4)return fail("usage: module regular-file-image sector-bytes");
@@ -123,9 +156,18 @@ int main(int argc,char **argv)
     IfsFsVolumeInfoV2 info={0};
     info.structure_bytes=sizeof info;
     void *session=NULL;
-    if(fs->mount(&io,&session,&info)!=IFS_FS_OK || !session ||
+    IfsFsHostRuntimeV2 clock_io=io;
+    clock_io.capabilities|=IFS_FS_HOST_CLOCK;
+    clock_io.monotonic_ns=fixture_clock;
+    clock_io.realtime_ns=fixture_clock;
+    if(fs->mount(&clock_io,&session,&info)!=IFS_FS_OK || !session ||
        info.variant!=12u || info.free_bytes>info.total_bytes)
         return fail("mount formatted FAT12 image");
+    if (fs->create(session,"/CLOCK.TXT",IFS_FS_ENTRY_FILE)!=IFS_FS_OK ||
+        fs->write(session,"/CLOCK.TXT",0u,"x",1u)!=IFS_FS_OK ||
+        vol->sync(session)!=IFS_FS_OK || check_clock_entry(&disk)!=0 ||
+        fs->remove(session,"/CLOCK.TXT")!=IFS_FS_OK)
+        return fail("native FAT timestamp must match host leap-day clock");
     {
         IfsFsVolumeInfoV2 current={0};
         current.structure_bytes=sizeof current;
