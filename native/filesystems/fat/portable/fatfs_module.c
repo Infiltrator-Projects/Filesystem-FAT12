@@ -1358,6 +1358,81 @@ static int guarded_common_v2_extent_map(void *context,const char *path,
     return v2_leave_operation(common_v2_extent_map(context,path,first_extent,out,capacity,written));
 }
 
+/* Partition-wide allocation map: native FAT entries are authoritative;
+ * reserved sectors and geometry tail are not free clusters. Check the
+ * volume before publishing any page and reject invalid cluster links.
+ * No allocation map is inferred from the root directory or file extents.
+ */
+static int common_allocation_map(void *context,uint64_t first,
+                                 IfsFsAllocationRangeV2 *out,uint32_t capacity,
+                                 uint32_t *written)
+{
+    if(!written)return IFS_FS_INVALID;
+    *written=0u;
+    if(!common_session_valid(context)||!out||!capacity||capacity>64u)
+        return IFS_FS_INVALID;
+    const uint64_t limit=common_session.host.volume_bytes;
+    if(first>limit)return IFS_FS_INVALID;
+    const uint64_t unit=(uint64_t)volume.csize*device.sector_bytes;
+    const uint64_t base=(uint64_t)volume.database*device.sector_bytes;
+    if(!unit||volume.n_fatent<3u||base>limit||
+       (uint64_t)(volume.n_fatent-2u)>(limit-base)/unit)
+        return IFS_FS_CORRUPT;
+    const uint64_t data_end=base+(uint64_t)(volume.n_fatent-2u)*unit;
+    uint64_t errors=0u;
+    int rc=common_v2_check(context,0u,&errors);
+    if(rc!=IFS_FS_OK)return rc;
+    if(errors)return IFS_FS_CORRUPT;
+    if(first==limit)return IFS_FS_END;
+    FIL table={0};table.obj.fs=&volume;
+    IfsFsAllocationRangeV2 page[64]={{0}};
+    uint64_t at=first;
+    uint32_t count=0u,scanned=0u;
+    while(at<limit && scanned<65536u) {
+        if(common_session.host.cancelled &&
+           common_session.host.cancelled(common_session.host.context))
+            return IFS_FS_BUSY;
+        uint64_t end;uint32_t state;
+        if(at<base) {
+            end=base;state=IFS_FS_SPACE_RESERVED;
+        } else if(at>=data_end) {
+            end=limit;state=IFS_FS_SPACE_RESERVED;
+        } else {
+            uint32_t cluster=2u+(uint32_t)((at-base)/unit);
+            DWORD value=ifs_fatfs_native_next_cluster(&table,cluster);
+            if(value==UINT32_MAX)return IFS_FS_IO_ERROR;
+            if(value==1u || (value>=volume.n_fatent && value<0xff0u))
+                return IFS_FS_CORRUPT;
+            state=!value?IFS_FS_SPACE_FREE:
+                value>=0xff0u && value<=0xff7u?IFS_FS_SPACE_RESERVED:
+                IFS_FS_SPACE_ALLOCATED;
+            end=base+(uint64_t)(cluster-1u)*unit;
+        }
+        if(count && page[count-1u].state==state)page[count-1u].length+=end-at;
+        else {
+            if(count==capacity)break;
+            page[count++]=(IfsFsAllocationRangeV2){
+                .physical_offset=at,.length=end-at,.state=state};
+        }
+        at=end;++scanned;
+    }
+    memcpy(out,page,count*sizeof(*page));
+    *written=count;return IFS_FS_OK;
+}
+static int guarded_common_allocation_map(void *context,uint64_t first,
+                                 IfsFsAllocationRangeV2 *out,uint32_t capacity,
+                                 uint32_t *written)
+{
+    if(written)*written=0u;
+    if(!v2_enter_operation())return IFS_FS_BUSY;
+    return v2_leave_operation(common_allocation_map(context,first,out,capacity,written));
+}
+static const IfsFsAllocationOpsV2 common_allocation={
+    .header={IFS_FS_GROUP_ABI_V2,sizeof(IfsFsAllocationOpsV2),
+             IFS_FS_GROUP_ALLOCATION,0u,IFS_FS_ALLOCATION_MAP},
+    .map=guarded_common_allocation_map
+};
+
 #include "fat12_relocation.h"
 static const IfsFsDefragOpsV2 common_v2_defrag={
     .header={IFS_FS_GROUP_ABI_V2,sizeof(IfsFsDefragOpsV2),
@@ -1375,13 +1450,14 @@ static const IfsFsGroupHeaderV2 *common_v2_query(
     if (id==IFS_FS_GROUP_CORE) return &common_v2_core.header;
     if (id==IFS_FS_GROUP_VOLUME) return &common_v2_volume.header;
     if (id==IFS_FS_GROUP_DEFRAG) return &common_v2_defrag.header;
+    if(id==IFS_FS_GROUP_ALLOCATION)return &common_allocation.header;
     return NULL;
 }
 static const IfsFsModuleApiV2 common_v2_api={
     IFS_FS_COMMON_ABI_V2,sizeof(IfsFsModuleApiV2),"fat12",
     IFS_FS_PROFILE_HOSTED|IFS_FS_PROFILE_FREESTANDING|IFS_FS_PROFILE_FIRMWARE,
     IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)|
-    IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG),
+    IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_ALLOCATION),
     common_v2_query
 };
 __attribute__((visibility("default")))

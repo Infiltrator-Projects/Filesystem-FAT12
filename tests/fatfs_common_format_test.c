@@ -292,6 +292,32 @@ int main(int argc,char **argv)
     }
     if(disk.bytes==255u*1024u*1024u && info.block_bytes!=65536u)
         return fail("255 MiB FAT12 allocation unit must be 64 KiB");
+    {
+        const IfsFsAllocationOpsV2 *allocation=(const void*)
+            ifs_fs_group_v2(api,IFS_FS_GROUP_ALLOCATION);
+        if(!allocation || !allocation->map || vol->sync(session)!=IFS_FS_OK)
+            return fail("canonical allocation interface unavailable");
+        uint64_t at=0u,unknown=0u,free_bytes=0u,used_bytes=0u,reserved=0u;
+        for(;;) {
+            IfsFsAllocationRangeV2 ranges[3]={{0}};
+            uint64_t next=at;uint32_t count=99u;
+            int rc=allocation->map(session,at,ranges,3u,&count);
+            if(!ifs_fs_allocation_page_v2_valid(io.volume_bytes,at,rc,
+                        ranges,3u,count,&next,&unknown))
+                return fail("invalid physical allocation page");
+            if(rc==IFS_FS_END)break;
+            for(uint32_t j=0u;j<count;++j) {
+                if(ranges[j].state==IFS_FS_SPACE_FREE)free_bytes+=ranges[j].length;
+                else if(ranges[j].state==IFS_FS_SPACE_ALLOCATED)used_bytes+=ranges[j].length;
+                else if(ranges[j].state==IFS_FS_SPACE_RESERVED)reserved+=ranges[j].length;
+            }
+            if(next<=at)return fail("allocation cursor did not advance");
+            at=next;
+        }
+        if(at!=io.volume_bytes || unknown || free_bytes!=info.free_bytes ||
+           !reserved || free_bytes+used_bytes+reserved!=io.volume_bytes)
+            return fail("allocation map does not reconcile with native free space");
+    }
     const char *dir="/SUBDIR";
     const char *name="/SUBDIR/Verified Café Unicode Data.txt";
     const char *renamed="/SUBDIR/Renamed File.txt";
