@@ -1,5 +1,4 @@
 %PDF-1.4
-%‚„œ”
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
@@ -193,7 +192,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 19 0 R >>
 endobj
 19 0 obj
-<< /Length 1689 >>
+<< /Length 1666 >>
 stream
 0.05 0.13 0.22 rg 0 749 595 93 re f
 0.01 0.52 0.56 rg 50 747 116 5 re f
@@ -204,7 +203,7 @@ BT /F1 8 Tf 0.30 0.39 0.42 rg 1 0 0 1 50 34.0 Tm (Filesystem-FAT12 / technical r
 BT /F1 8 Tf 0.30 0.39 0.42 rg 1 0 0 1 504 34.0 Tm (PAGE 07) Tj ET
 BT /F2 16 Tf 0.02 0.44 0.50 rg 1 0 0 1 50 713.0 Tm (INFILTRATOROS INTERPRETATION) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 677.0 Tm (The InfiltratorOS FAT12.so module is a separate implementation of this public on-media) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 660.0 Tm (format. Its API versioning, boot bridge and optional Linux kernel module are not properties) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 660.0 Tm (format. Its Common V2 ABI and generic boot bridge are not properties) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 643.0 Tm (of historical FAT12. Any published claim of write support, defragmentation, VFAT handling) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 626.0 Tm (or recovery applies only to a tested version of our implementation.) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 597.0 Tm (The conceptual map on the cover is not a literal sector diagram. A forensic parser must) Tj ET
@@ -217,7 +216,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 21 0 R >>
 endobj
 21 0 obj
-<< /Length 2084 >>
+<< /Length 2078 >>
 stream
 0.05 0.13 0.22 rg 0 749 595 93 re f
 0.01 0.52 0.56 rg 50 747 116 5 re f
@@ -235,8 +234,8 @@ BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 597.0 Tm (copy\)) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 568.0 Tm (https://www.scs.stanford.edu/~zyedidia/docs/_other/fat.pdf) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 539.0 Tm (2. Linux kernel VFAT documentation) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 510.0 Tm (https://docs.kernel.org/filesystems/vfat.html) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 481.0 Tm (Implementation boundary: the installed InfiltratorOS .so, the optional Linux kernel .ko,) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 464.0 Tm (and the source-first installer are distinct products. The original filesystem design is) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 481.0 Tm (Implementation boundary: one installed Common V2 .so; no separate per-format driver.) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 464.0 Tm (The source-download installer builds that provider. The original filesystem design is) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 447.0 Tm (documented above; claims about the adapter's qualification require its own source, tests) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 51 430.0 Tm (and release evidence.) Tj ET
 endstream
@@ -465,43 +464,43 @@ endobj
 xref
 0 36
 0000000000 65535 f 
-0000000015 00000 n 
-0000000064 00000 n 
-0000000219 00000 n 
-0000000289 00000 n 
-0000000364 00000 n 
-0000000432 00000 n 
-0000000578 00000 n 
-0000003590 00000 n 
-0000003736 00000 n 
-0000005960 00000 n 
-0000006108 00000 n 
-0000008245 00000 n 
-0000008393 00000 n 
-0000010670 00000 n 
-0000010818 00000 n 
-0000012895 00000 n 
-0000013043 00000 n 
-0000015020 00000 n 
-0000015168 00000 n 
-0000016909 00000 n 
-0000017057 00000 n 
-0000019193 00000 n 
-0000019341 00000 n 
-0000021297 00000 n 
-0000021445 00000 n 
-0000023237 00000 n 
-0000023385 00000 n 
-0000025340 00000 n 
-0000025488 00000 n 
-0000028309 00000 n 
-0000028457 00000 n 
-0000031263 00000 n 
-0000031411 00000 n 
-0000034372 00000 n 
-0000034520 00000 n 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000213 00000 n 
+0000000283 00000 n 
+0000000358 00000 n 
+0000000426 00000 n 
+0000000572 00000 n 
+0000003584 00000 n 
+0000003730 00000 n 
+0000005954 00000 n 
+0000006102 00000 n 
+0000008239 00000 n 
+0000008387 00000 n 
+0000010664 00000 n 
+0000010812 00000 n 
+0000012889 00000 n 
+0000013037 00000 n 
+0000015014 00000 n 
+0000015162 00000 n 
+0000016880 00000 n 
+0000017028 00000 n 
+0000019158 00000 n 
+0000019306 00000 n 
+0000021262 00000 n 
+0000021410 00000 n 
+0000023202 00000 n 
+0000023350 00000 n 
+0000025305 00000 n 
+0000025453 00000 n 
+0000028274 00000 n 
+0000028422 00000 n 
+0000031228 00000 n 
+0000031376 00000 n 
+0000034337 00000 n 
+0000034485 00000 n 
 trailer
 << /Size 36 /Root 1 0 R >>
 startxref
-38356
+38321
 %%EOF
