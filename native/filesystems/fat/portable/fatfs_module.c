@@ -177,57 +177,95 @@ static int detach(void)
     bound = 0;
     return 0;
 }
+/* Translate the native engine's result at the provider boundary. FR_DENIED
+ * is ambiguous (permissions, nonempty directory, or a full directory);
+ * only an observed short write or clipped seek is definitely NO_SPACE. */
+static int fat_status(FRESULT result)
+{
+    switch(result) {
+    case FR_OK: return IFS_FS_OK;
+    case FR_NO_FILE: case FR_NO_PATH: return IFS_FS_NOT_FOUND;
+    case FR_EXIST: return IFS_FS_EXISTS;
+    case FR_INVALID_NAME: case FR_INVALID_PARAMETER:
+        return IFS_FS_INVALID;
+    case FR_DENIED: case FR_WRITE_PROTECTED: return IFS_FS_ACCESS;
+    case FR_NOT_ENOUGH_CORE: return IFS_FS_NO_MEMORY;
+    case FR_INT_ERR: return IFS_FS_CORRUPT;
+    default: return IFS_FS_IO_ERROR;
+    }
+}
 static int create_file(const char *path)
 {
     FIL f;
-    if (!selected || !path || f_open(&f, path, FA_WRITE | FA_CREATE_NEW) != FR_OK)
-        return -1;
-    return f_close(&f) == FR_OK ? 0 : -1;
+    if (!selected || !path) return IFS_FS_INVALID;
+    FRESULT result=f_open(&f,path,FA_WRITE|FA_CREATE_NEW);
+    if (result!=FR_OK) return fat_status(result);
+    return fat_status(f_close(&f));
 }
-static int file_read(const char *path, uint32_t offset, void *buffer, uint32_t n)
+static int file_read(const char *path,uint32_t offset,void *buffer,uint32_t n)
 {
     FIL f;
     UINT got=0;
-    int good;
-    if (!selected || !path || (!buffer && n) ||
-        f_open(&f, path, FA_READ) != FR_OK) return -1;
-    good=(offset <= f_size(&f)) &&
-         (n <= f_size(&f)-(FSIZE_t)offset) &&
-         f_lseek(&f, (FSIZE_t)offset) == FR_OK &&
-         f_read(&f,buffer,n,&got)==FR_OK && got==n;
-    if (f_close(&f)!=FR_OK) good=0;
-    return good?0:-1;
+    if (!selected || !path || (!buffer && n)) return IFS_FS_INVALID;
+    FRESULT result=f_open(&f,path,FA_READ);
+    if (result!=FR_OK) return fat_status(result);
+    int rc=IFS_FS_OK;
+    if (offset>f_size(&f) || n>f_size(&f)-(FSIZE_t)offset)
+        rc=IFS_FS_INVALID;
+    else if ((result=f_lseek(&f,(FSIZE_t)offset))!=FR_OK)
+        rc=fat_status(result);
+    else if (n) {
+        result=f_read(&f,buffer,n,&got);
+        rc=result!=FR_OK?fat_status(result):
+           (got==n?IFS_FS_OK:IFS_FS_CORRUPT);
+    }
+    result=f_close(&f);
+    if (result!=FR_OK && rc==IFS_FS_OK) rc=fat_status(result);
+    return rc;
 }
-static int file_write(const char *path, uint32_t offset, const void *buffer, uint32_t n)
+static int file_write(const char *path,uint32_t offset,const void *buffer,uint32_t n)
 {
     FIL f;
     UINT written=0;
-    int good;
-    if (!selected || !path || (!buffer && n) || n>UINT32_MAX-offset ||
-        f_open(&f,path,FA_WRITE|FA_OPEN_EXISTING)!=FR_OK) return -1;
-    /* FatFs may return FR_OK after clipping a seek when the volume is full.
-     * Never write at the clipped position: that would overwrite earlier data
-     * while telling the caller that its requested offset was honoured. */
-    good=f_lseek(&f,(FSIZE_t)offset)==FR_OK && f_tell(&f)==(FSIZE_t)offset &&
-         f_write(&f,buffer,n,&written)==FR_OK && written==n &&
-         f_sync(&f)==FR_OK;
-    if (f_close(&f)!=FR_OK) good=0;
-    return good?0:-1;
+    if (!selected || !path || (!buffer && n) || n>UINT32_MAX-offset)
+        return IFS_FS_INVALID;
+    FRESULT result=f_open(&f,path,FA_WRITE|FA_OPEN_EXISTING);
+    if (result!=FR_OK) return fat_status(result);
+    /* A full volume can clip a successful seek or short-write. Report
+     * exhaustion distinctly and never write at a clipped file offset. */
+    int rc=fat_status(f_lseek(&f,(FSIZE_t)offset));
+    if (rc==IFS_FS_OK && f_tell(&f)!=(FSIZE_t)offset)
+        rc=IFS_FS_NO_SPACE;
+    if (rc==IFS_FS_OK && n) {
+        result=f_write(&f,buffer,n,&written);
+        rc=result!=FR_OK?fat_status(result):
+           (written==n?IFS_FS_OK:IFS_FS_NO_SPACE);
+    }
+    if (rc==IFS_FS_OK) rc=fat_status(f_sync(&f));
+    result=f_close(&f);
+    /* A failed close may mean a partially committed write, even when
+     * the original operation stopped for lack of space. */
+    if (result!=FR_OK) rc=fat_status(result);
+    return rc;
 }
-static int file_truncate(const char *path, uint32_t bytes)
+static int file_truncate(const char *path,uint32_t bytes)
 {
     FIL f;
-    int good;
-    if (!selected || !path ||
-        f_open(&f,path,FA_WRITE|FA_OPEN_EXISTING)!=FR_OK) return -1;
-    /* As with writes, a clipped seek is not a successful resize. */
-    good=f_lseek(&f,(FSIZE_t)bytes)==FR_OK && f_tell(&f)==(FSIZE_t)bytes &&
-         f_truncate(&f)==FR_OK && f_sync(&f)==FR_OK;
-    if (f_close(&f)!=FR_OK) good=0;
-    return good?0:-1;
+    if (!selected || !path) return IFS_FS_INVALID;
+    FRESULT result=f_open(&f,path,FA_WRITE|FA_OPEN_EXISTING);
+    if (result!=FR_OK) return fat_status(result);
+    int rc=fat_status(f_lseek(&f,(FSIZE_t)bytes));
+    if (rc==IFS_FS_OK && f_tell(&f)!=(FSIZE_t)bytes) rc=IFS_FS_NO_SPACE;
+    if (rc==IFS_FS_OK) rc=fat_status(f_truncate(&f));
+    if (rc==IFS_FS_OK) rc=fat_status(f_sync(&f));
+    result=f_close(&f);
+    if (result!=FR_OK) rc=fat_status(result);
+    return rc;
 }
-static int make_dir(const char *path) { return selected && path && f_mkdir(path)==FR_OK?0:-1; }
-static int remove_path(const char *path) { return selected && path && f_unlink(path)==FR_OK?0:-1; }
+static int make_dir(const char *path)
+{ return selected && path?fat_status(f_mkdir(path)):IFS_FS_INVALID; }
+static int remove_path(const char *path)
+{ return selected && path?fat_status(f_unlink(path)):IFS_FS_INVALID; }
 /* FatFs does not reject moving a FAT directory under its own descendants.
  * Follow the destination parent's on-media '..' chain by cluster identity;
  * comparing path strings would miss short-name aliases and case differences.
@@ -731,6 +769,7 @@ static int common_entry(IfsFsEntryV2 *out, const IfsFatfsEntry *file_info,
     uint32_t length=0;
     if (!out || out->structure_bytes<sizeof(*out) || !out->name ||
         !out->name_capacity) return IFS_FS_INVALID;
+    out->name_bytes=0u;
     while (source[length]) {
         if (length+1u>=out->name_capacity) return IFS_FS_NO_SPACE;
         ++length;
@@ -796,10 +835,9 @@ static int common_file_read(void *context, const char *path, uint64_t offset,
         return IFS_FS_UNSUPPORTED; /* FAT12 on-media file offsets are 32-bit. */
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
     common_read_failure=IFS_FS_OK;
-    return file_read(p,(uint32_t)offset,
-                                                     destination,length)==0 ?
-           IFS_FS_OK : (common_read_failure!=IFS_FS_OK ?
-             common_read_failure:IFS_FS_IO_ERROR);
+    rc=file_read(p,(uint32_t)offset,destination,length);
+    return rc!=IFS_FS_OK && common_read_failure!=IFS_FS_OK?
+        common_read_failure:rc;
 }
 static int guarded_common_file_read(void *context, const char *path, uint64_t offset,
                             void *destination, uint32_t length)
@@ -819,9 +857,10 @@ static int common_file_write(void *context, const char *path, uint64_t offset,
     if (offset>UINT32_MAX || length>UINT32_MAX-offset)
         return IFS_FS_UNSUPPORTED;
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
-    return file_write(p,(uint32_t)offset,
-                                                      source,length)==0 ?
-           IFS_FS_OK : IFS_FS_IO_ERROR;
+    common_read_failure=IFS_FS_OK;
+    rc=file_write(p,(uint32_t)offset,source,length);
+    return rc!=IFS_FS_OK && common_read_failure!=IFS_FS_OK?
+        common_read_failure:rc;
 }
 static int guarded_common_file_write(void *context, const char *path, uint64_t offset,
                              const void *source, uint32_t length)
@@ -840,10 +879,10 @@ static int common_create(void *context, const char *path, uint32_t type)
         return IFS_FS_UNSUPPORTED;
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
     if (!p[3]) return IFS_FS_INVALID; /* Never create the volume root. */
-    rc=type==IFS_FS_ENTRY_FILE ?
-       create_file(p) :
-       make_dir(p);
-    return rc==0 ? IFS_FS_OK : IFS_FS_IO_ERROR;
+    common_read_failure=IFS_FS_OK;
+    rc=type==IFS_FS_ENTRY_FILE?create_file(p):make_dir(p);
+    return rc!=IFS_FS_OK && common_read_failure!=IFS_FS_OK?
+        common_read_failure:rc;
 }
 static int guarded_common_create(void *context, const char *path, uint32_t type)
 {
@@ -859,8 +898,10 @@ static int common_remove(void *context, const char *path)
     if (!common_writable()) return IFS_FS_ACCESS;
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
     if (!p[3]) return IFS_FS_INVALID;
-    return remove_path(p)==0 ?
-           IFS_FS_OK : IFS_FS_IO_ERROR;
+    common_read_failure=IFS_FS_OK;
+    rc=remove_path(p);
+    return rc!=IFS_FS_OK && common_read_failure!=IFS_FS_OK?
+        common_read_failure:rc;
 }
 static int guarded_common_remove(void *context, const char *path)
 {
@@ -896,8 +937,10 @@ static int common_truncate(void *context, const char *path, uint64_t length)
     if (!common_writable()) return IFS_FS_ACCESS;
     if (length>UINT32_MAX) return IFS_FS_UNSUPPORTED;
     if ((rc=common_path(path,p))!=IFS_FS_OK) return rc;
-    return file_truncate(p,(uint32_t)length)==0 ?
-           IFS_FS_OK : IFS_FS_IO_ERROR;
+    common_read_failure=IFS_FS_OK;
+    rc=file_truncate(p,(uint32_t)length);
+    return rc!=IFS_FS_OK && common_read_failure!=IFS_FS_OK?
+        common_read_failure:rc;
 }
 static int guarded_common_truncate(void *context, const char *path, uint64_t length)
 {

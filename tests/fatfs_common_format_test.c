@@ -223,6 +223,23 @@ int main(int argc,char **argv)
         !disk.failed_reads)
         return fail("read failed to propagate the host I/O error");
     disk.fail_reads=0;
+    /* Verify distinct native errors, with no accidental file creation
+     * or data modification on failed lookups or duplicate creates. */
+    if (fs->read(session,"/SUBDIR/ABSENT.TXT",0u,readback,1u)!=IFS_FS_NOT_FOUND ||
+        fs->write(session,"/SUBDIR/ABSENT.TXT",0u,"x",1u)!=IFS_FS_NOT_FOUND ||
+        fs->truncate(session,"/SUBDIR/ABSENT.TXT",1u)!=IFS_FS_NOT_FOUND ||
+        fs->remove(session,"/SUBDIR/ABSENT.TXT")!=IFS_FS_NOT_FOUND ||
+        fs->create(session,renamed,IFS_FS_ENTRY_FILE)!=IFS_FS_EXISTS ||
+        fs->read(session,renamed,1000u,readback,1u)!=IFS_FS_INVALID)
+        return fail("native FAT error status collapsed or wrong range accepted");
+    {
+        char tiny[2]={'X','X'};
+        IfsFsEntryV2 short_entry={.structure_bytes=sizeof(short_entry),
+            .name=tiny,.name_capacity=sizeof(tiny),.name_bytes=99u};
+        if(fs->stat(session,renamed,&short_entry)!=IFS_FS_NO_SPACE ||
+           short_entry.name_bytes || tiny[0]!='X' || tiny[1]!='X')
+            return fail("short FAT name output was not atomic");
+    }
     if (fs->stat(session,"/SUBDIR/ABSENT.TXT",&entry)!=IFS_FS_NOT_FOUND ||
         fs->read(session,renamed,0u,readback,1000u)!=IFS_FS_OK)
         return fail("fault recovery confused a missing FAT12 path");
