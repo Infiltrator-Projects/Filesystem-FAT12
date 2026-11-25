@@ -49,13 +49,16 @@ int main(void)
     CHECK(api->group_mask ==
         (IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|
          IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)|
-         IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG)));
+         IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG)|
+         IFS_FS_GROUP_BIT(IFS_FS_GROUP_ALLOCATION)));
     const IfsFsCoreOpsV2 *core=
         (const IfsFsCoreOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_CORE);
     const IfsFsVolumeOpsV2 *volume_ops=
         (const IfsFsVolumeOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_VOLUME);
     const IfsFsDefragOpsV2 *defrag=
         (const IfsFsDefragOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_DEFRAG);
+    const IfsFsAllocationOpsV2 *allocation=(const void*)ifs_fs_group_v2(api,IFS_FS_GROUP_ALLOCATION);
+    CHECK(allocation && allocation->header.capabilities==IFS_FS_ALLOCATION_MAP && allocation->map);
     CHECK(core && volume_ops && defrag && defrag->map);
     CHECK(defrag->header.capabilities==IFS_FS_DEFRAG_ALL &&
           defrag->plan && defrag->execute && defrag->verify &&
