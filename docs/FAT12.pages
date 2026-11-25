@@ -367,9 +367,9 @@ BT /F1 8 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 34 Tm (Filesystem-FAT12 / original form
 BT /F1 8 Tf 0.09 0.16 0.24 rg 1 0 0 1 504 34 Tm (PAGE 17) Tj ET
 BT /F2 12 Tf 0.03 0.54 0.59 rg 1 0 0 1 50 695 Tm (Floppy and OEM geometry) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 660 Tm (Examples at 512 bytes/sector: 160 KiB \(40 tracks, 1 head, 8 sectors/track; media FE\); 320 KiB \(2 heads, 8) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 644 Tm (sectors; FF\); 180 KiB \(1 head, 9 sectors; FC\); 360 KiB \(2 heads, 9 sectors; FD\); 1.2 MiB \(80 tracks, 2) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 628 Tm (heads, 15 sectors; F9\); 720 KiB \(80, 2, 9; F9\); 1.44 MiB \(80, 2, 18; F0\); 2.88 MiB \(80, 2, 36; F0\). Media ID) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 612 Tm (alone is ambiguous. A standard 1.44 MiB example uses 2880 sectors, 1 reserved, 2 FATs of 9 sectors,) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 644 Tm (sectors; FF\); 180 KiB \(1 head, 9 sectors; FC\); 360 KiB \(2 heads, 9 sectors; FD\); 1200 KiB \(80 tracks, 2) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 628 Tm (heads, 15 sectors; F9\); 720 KiB \(80, 2, 9; F9\); 1440 KiB \(80, 2, 18; F0\); 2880 KiB \(80, 2, 36; F0\). Media ID) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 612 Tm (alone is ambiguous. A standard 1440 KiB example uses 2880 sectors, 1 reserved, 2 FATs of 9 sectors,) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 596 Tm (224 root entries and 1 sector/cluster: root=14 sectors; first data=33; 2847 clusters. Apricot uses BPB at) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 580 Tm (0x50 on certain 315/720 KiB disks. BBC Master 512 DOS Plus uses special 800 KiB/1024-byte and 640) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 564 Tm (KiB/256-byte formats; the latter has an ADFS boot area. DEC Rainbow 100 uses reserved tracks, no) Tj ET
@@ -425,16 +425,20 @@ BT /F2 12 Tf 0.03 0.54 0.59 rg 1 0 0 1 50 695 Tm (Common BPB and region arithmet
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 660 Tm (Hex byte offset:size \(modern DOS/EFI layout\): 0x00:3 jump; 0x03:8 OEM name; 0x0B:2 bytes/sector;) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 644 Tm (0x0D:1 sectors/cluster; 0x0E:2 reserved count; 0x10:1 FAT count; 0x11:2 root entries; 0x13:2 TotSec16;) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 628 Tm (0x15:1 media; 0x16:2 FATSz16; 0x18:2 sectors/track; 0x1A:2 heads; 0x1C:4 hidden sectors \(DOS 3.31) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 612 Tm (layout\); 0x20:4 TotSec32. Boot signature bytes 55 AA at 0x1FE. Interpret logical-sector sizes and) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 596 Tm (power-of-two cluster sectors with checked arithmetic. root_sectors=ceil\(root_entries*32/B\);) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 580 Tm (fat_sectors=FATSz16 if nonzero else FATSz32; total=TotSec16 if nonzero else TotSec32;) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 564 Tm (first_data=reserved+FAT_count*fat_sectors+root_sectors;) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 548 Tm (cluster_count=floor\(\(total-first_data\)/sectors_per_cluster\). Reject overflow, underflow, truncated media) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 532 Tm (and FAT capacity below cluster_count+2 entries. Cluster n sector=first_data+\(n-2\)*sectors_per_cluster,) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 516 Tm (relative to volume; add partition offset only in whole-device host translation. CHS translation is historical:) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 500 Tm (LBA=\(\(cylinder*heads\)+head\)*sectors_per_track+sector-1. FAT type is based on count, not the textual) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 484 Tm (label or partition ID. Stay at least 16 clusters away from type cutovers when formatting for broad legacy) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 468 Tm (compatibility.) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 612 Tm (layout\); 0x20:4 TotSec32. Boot signature bytes 55 AA at 0x1FE. The Microsoft EFI profile specifies logical) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 596 Tm (sector sizes 512, 1024, 2048 or 4096 bytes and sectors/cluster 1, 2, 4, 8, 16, 32, 64 or 128. For broad) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 580 Tm (compatibility its cluster size must not exceed 32 KiB; larger or older nonstandard geometries need explicit) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 564 Tm (profiles. FATSz16 and RootEntCnt must be nonzero; FAT32-only BPB fields must not be read as valid) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 548 Tm (FAT12/16 metadata. Use checked arithmetic. root_sectors=ceil\(root_entries*32/B\); fat_sectors=FATSz16) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 532 Tm (if nonzero else FATSz32; total=TotSec16 if nonzero else TotSec32;) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 516 Tm (first_data=reserved+FAT_count*fat_sectors+root_sectors;) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 500 Tm (cluster_count=floor\(\(total-first_data\)/sectors_per_cluster\). Reject overflow, underflow, truncated media) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 484 Tm (and FAT capacity below cluster_count+2 entries. Cluster n sector=first_data+\(n-2\)*sectors_per_cluster,) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 468 Tm (relative to volume; add partition offset only in whole-device host translation. CHS translation is historical:) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 452 Tm (LBA=\(\(cylinder*heads\)+head\)*sectors_per_track+sector-1. FAT type is based on count, not the textual) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 436 Tm (label or partition ID. On GPT media the Microsoft basic data GUID is) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 420 Tm (EBD0A0A2-B9E5-4433-87C0-68B6B72699C7; it is shared with other formats. Stay at least 16 clusters) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 404 Tm (away from type cutovers when formatting for broad legacy compatibility.) Tj ET
 %%Page
 0.05 0.13 0.22 rg 0 749 595 93 re f
 0.01 0.52 0.56 rg 50 747 116 5 re f
@@ -450,12 +454,14 @@ BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 628 Tm (0x0E:2 create time; 0x10:2 c
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 612 Tm (reserved or historical EA handle on FAT12/16; 0x16:2 modification time; 0x18:2 modification date; 0x1A:2) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 596 Tm (first-cluster low word; 0x1C:4 file size. Attributes: 0x01 read-only, 0x02 hidden, 0x04 system, 0x08) Tj ET
 BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 580 Tm (volume, 0x10 directory, 0x20 archive; 0x0F identifies LFN; upper bits reserved. First byte 0x00 means) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 564 Tm (end, 0xE5 deleted, 0x05 encodes initial OEM 0xE5. Directory sizes are normally zero; traverse chains.) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 548 Tm (Dot points to self; dot-dot uses zero for root parent. Root volume labels are metadata, not ordinary files.) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 532 Tm (Timestamp date bits 0..4 day, 5..8 month, 9..15 year minus 1980; time bits 0..4 seconds/2, 5..10 minute,) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 516 Tm (11..15 hour. Representable years 1980..2107; historic DOS API often limited to 2099. Access date) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 500 Tm (granularity one day; modification 2s; create increments 10ms where supported. No stored timezone in) Tj ET
-BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 484 Tm (classic FAT. Preserve unknown/reserved fields as applicable to explicit profiles.) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 564 Tm (end, 0xE5 deleted, 0x05 encodes initial OEM 0xE5. Directory sizes are normally zero in their entries;) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 548 Tm (derive chain length by traversal. Microsoft specifies a maximum directory storage size of 2 MiB \(65,536) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 532 Tm (records, not files\); the fixed FAT12/16 root has a separate BPB-defined limit. Dot points to self; dot-dot) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 516 Tm (uses zero for root parent. Root volume labels are metadata, not ordinary files. Timestamp date bits 0..4) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 500 Tm (day, 5..8 month, 9..15 year minus 1980; time bits 0..4 seconds/2, 5..10 minute, 11..15 hour.) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 484 Tm (Representable years 1980..2107; historic DOS API often limited to 2099. Access date granularity one day;) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 468 Tm (modification 2s; create increments 10ms where supported. No stored timezone in classic FAT. Preserve) Tj ET
+BT /F1 10.2 Tf 0.09 0.16 0.24 rg 1 0 0 1 50 452 Tm (unknown/reserved fields as applicable to explicit profiles.) Tj ET
 %%Page
 0.05 0.13 0.22 rg 0 749 595 93 re f
 0.01 0.52 0.56 rg 50 747 116 5 re f
