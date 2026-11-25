@@ -275,3 +275,67 @@ BT /F1 10 Tf 0.09 0.16 0.24 rg 1 0 0 1 55 420 Tm (7. Do not mistake a volume's t
 BT /F1 10 Tf 0.09 0.16 0.24 rg 1 0 0 1 55 403.5 Tm (thresholds are satisfied, particularly near FAT12/FAT16 boundaries.) Tj ET
 BT /F1 10 Tf 0.09 0.16 0.24 rg 1 0 0 1 55 377 Tm (8. Preserve the original boot sector, FAT copies and directory entries before repair;) Tj ET
 BT /F1 10 Tf 0.09 0.16 0.24 rg 1 0 0 1 55 360.5 Tm (their byte-level evidence is often more valuable than a guessed reconstructed chain.) Tj ET
+%%Page
+0.05 0.13 0.22 rg 0 749 595 93 re f
+0.04 0.54 0.60 rg 50 747 115 4 re f
+0.78 0.82 0.86 RG 0.6 w 50 50 m 545 50 l S
+BT /F2 9 Tf 0.62 0.86 0.90 rg 1 0 0 1 50 801 Tm (INFILTRATOR / IMPLEMENTATION REFERENCE) Tj ET
+BT /F2 19 Tf 1 1 1 rg 1 0 0 1 50 771 Tm (FAT12 / Common V2 provider) Tj ET
+BT /F1 8 Tf 0.34 0.40 0.44 rg 1 0 0 1 50 34 Tm (Implementation appendix / source revision dbce3087376c) Tj ET
+BT /F1 8 Tf 0.34 0.40 0.44 rg 1 0 0 1 505 34 Tm (PAGE 14) Tj ET
+BT /F2 13 Tf 0.02 0.45 0.50 rg 1 0 0 1 50 710 Tm (1. PURPOSE AND FORMAT SCOPE) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 686 Tm (Microsoft FAT12, with packed 12-bit allocation entries and fixed root) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 671 Tm (directory. This repository owns the format-specific implementation of) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 656 Tm (FAT12.so for InfiltratorOS.) Tj ET
+BT /F2 13 Tf 0.02 0.45 0.50 rg 1 0 0 1 50 626 Tm (2. ON-DISK ARCHITECTURE AND INVARIANTS) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 602 Tm (Classify by data-cluster count below 4,085, not by the text label in the) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 587 Tm (boot sector. Derive the data region from BPB geometry, FAT sizes and the) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 572 Tm (fixed-root region. Packed entries can straddle bytes and sectors; updating) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 557 Tm (one must preserve neighbouring bits. Directory chains, file lengths,) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 542 Tm (cluster ownership and redundant tables must be consistent.) Tj ET
+BT /F2 13 Tf 0.02 0.45 0.50 rg 1 0 0 1 50 512 Tm (3. COMMON V2 IMPLEMENTATION AND CAPABILITIES) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 488 Tm (Common V2 covers filesystem read/write, volume query, sync, integrity) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 473 Tm (checks, exclusive mirror repair and explicitly sized formatting through) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 458 Tm (the selected FAT engine. Native namespace and capacity errors must not be) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 443 Tm (collapsed into format rejection. BOOT uses the same SO through a bounded) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 428 Tm (read-only host; dedicated relocation and recovery remain separately) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 413 Tm (qualified. The canonical entry point is infiltrator_filesystem_api_v2.) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 398 Tm (Consumers must negotiate the actual profile and operation masks and use) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 383 Tm (bounded, partition-relative host I/O. A source-level callback does not by) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 368 Tm (itself establish that every format variant or host profile is qualified.) Tj ET
+%%Page
+0.05 0.13 0.22 rg 0 749 595 93 re f
+0.04 0.54 0.60 rg 50 747 115 4 re f
+0.78 0.82 0.86 RG 0.6 w 50 50 m 545 50 l S
+BT /F2 9 Tf 0.62 0.86 0.90 rg 1 0 0 1 50 801 Tm (INFILTRATOR / IMPLEMENTATION REFERENCE) Tj ET
+BT /F2 19 Tf 1 1 1 rg 1 0 0 1 50 771 Tm (FAT12 / Common V2 provider) Tj ET
+BT /F1 8 Tf 0.34 0.40 0.44 rg 1 0 0 1 50 34 Tm (Implementation appendix / source revision dbce3087376c) Tj ET
+BT /F1 8 Tf 0.34 0.40 0.44 rg 1 0 0 1 505 34 Tm (PAGE 15) Tj ET
+BT /F2 13 Tf 0.02 0.45 0.50 rg 1 0 0 1 50 710 Tm (4. INTEGRITY, MUTATION, ALLOCATION AND RECOVERY) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 686 Tm (FAT has no general native journal. Relocation and application-managed) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 671 Tm (recovery must preserve cluster chains, directory start references, FAT) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 656 Tm (copies and payload identity. Do not infer arbitrary power-loss durability) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 641 Tm (or generic kernel-side SO mounting from a successful fixture. For) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 626 Tm (destructive operations, require the applicable exclusive writable host,) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 611 Tm (durability contract and format-specific validation. Never silently) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 596 Tm (substitute a kernel or FUSE driver or treat a rejected or unavailable) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 581 Tm (operation as success. Preserve original disk-format semantics; relocation) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 566 Tm (and recovery are separate from ordinary file I/O.) Tj ET
+BT /F2 13 Tf 0.02 0.45 0.50 rg 1 0 0 1 50 536 Tm (5. BUILD, INSTALLATION AND RELEASE) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 512 Tm (The target installation is /System/Filesystems/FAT12.so and) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 497 Tm (/System/Resources/Documentation/Filesystem-FAT12.pdf. The project release) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 482 Tm (policy is a portable amd64 DEB and a CPU-native source-first RUN, with) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 467 Tm (GitHub's automatic source archive; do not treat this policy statement as) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 452 Tm (verification of the current installer payload. The release workflow is the) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 437 Tm (authoritative executable build and package specification. Historical) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 422 Tm (adapters and test artifacts are not additional production filesystem) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 407 Tm (authorities.) Tj ET
+BT /F2 13 Tf 0.02 0.45 0.50 rg 1 0 0 1 50 377 Tm (6. QUALIFICATION AND LIMITATIONS) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 353 Tm (Recorded qualification workflow) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 338 Tm (\(https://github.com/Infiltrator-Projects/Filesystem-FAT12/actions/runs/455) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 323 Tm (19927956\) | Current workflows) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 308 Tm (\(https://github.com/Infiltrator-Projects/Filesystem-FAT12/actions?query=br) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 293 Tm (anch%3Amain\). A successful workflow establishes the tested scope only, not) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 278 Tm (complete original-format parity, physical-media crash safety, or) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 263 Tm (production BOOT/kernel integration. Use disposable images for destructive) Tj ET
+BT /F1 10.2 Tf 0.07 0.16 0.23 rg 1 0 0 1 50 248 Tm (qualification.) Tj ET
