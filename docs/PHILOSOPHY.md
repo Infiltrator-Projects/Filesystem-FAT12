@@ -1,5 +1,7 @@
 # Engineering Philosophy
 
+The independent FAT12 provider follows the [current product architecture](ONE_MODULE_END_STATE.md), [Common V2 contract](https://github.com/Infiltrator-Projects/Libraries/blob/main/docs/FILESYSTEM_COMMON_ABI_V2.md) and [release policy](PACKAGING.md). Historical platform implementations are evidence only, not alternate production engines.
+
 Filesystems is part of the single InfiltratorOS product. It shares the operating
 system's visual and interaction language. Normal filesystem management and the
 planned Setup installation flow are graphical; a hidden terminal is reserved

@@ -1,5 +1,7 @@
 # Cross-platform native filesystem architecture
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 ## Decision
 
 Filesystems owns one canonical implementation of each project-native filesystem. Filesystem-specific semantics are implemented once; Linux and Windows provide operating-system adapters around that implementation and must not maintain competing interpretations of the on-disk format.

@@ -1,5 +1,7 @@
 # DOS\\0 — feature-completion and independent acceptance matrix
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 **Scope:** Authentic original AmigaDOS Old File System (`DOS\\0`, DOSType `0x444F5300`), **not** international `DOS\\2`, directory-cache `DOS\\4`, LNFS `DOS\\6`, FFS or muFS. Canonical disk format: [`native/filesystems/ofs/OFS_SPECIFICATION.md`](../native/filesystems/ofs/OFS_SPECIFICATION.md).
 
 **Status (24 October 2026): NOT FEATURE COMPLETE.** A passing CI build, an empty formatted image, a successful synthetic self-check or even a mounted 32-MiB volume does not complete the format. Green checks certify only exercised cases. This is a mandatory closure list, not a declaration that any unchecked row has passed.

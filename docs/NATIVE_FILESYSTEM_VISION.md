@@ -1,5 +1,7 @@
 # Native Filesystem Vision and Long-Term Architecture
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 ## Purpose
 
 Filesystems exists so InfiltratorOS is not permanently tied to one root filesystem. A user installing InfiltratorOS should ultimately be able to choose among qualified real disk filesystems, have the target formatted accordingly, and receive all runtime and boot support required for that choice.

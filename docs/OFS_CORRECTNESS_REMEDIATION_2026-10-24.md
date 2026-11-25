@@ -1,5 +1,7 @@
 # OFS specification conformance: verified findings and remediation register
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 Date: 24 October 2026  
 Status: **OPEN — documentation-first record**. Recorded before remediation changes.  
 Baseline: Filesystems `main` commit `92e1a43f61e1b6964224791ed5514355ff41bd15`; Linux `ofs.ko`, image formatter, and experimental EFI OFS reader are separate qualification surfaces.

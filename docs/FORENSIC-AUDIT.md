@@ -1,5 +1,7 @@
 # Independent FAT12 forensic audit
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 ## Examined baseline
 
 Original Filesystems source commit `d7a572dcd0d11f7bc69cc05e09e3e944be747838` and native GitHub qualification for the standalone FAT12 v0.1.0. Filesystem sources were copied in full before any removal of unrelated formats; provenance and original licence notices remain present. The independently published generic Debian package and native RUN were built from the same repository and validated on an ephemeral Ubuntu 24.04 GitHub runner.

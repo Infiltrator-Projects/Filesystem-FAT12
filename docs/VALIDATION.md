@@ -1,6 +1,8 @@
 # Filesystem-FAT12 validation and release criteria
 
-**Completion standard:** [one FAT12.so shared across all consumers](ONE_MODULE_END_STATE.md), not merely independent tests of three binaries. Native read/write/format/defragmentation, real BOOT `.so` loading and kernel mount/root behavior must pass independently. The Boot ELF/UEFI shared-object bridge is tested separately with real Linux handoff; the generic kernel SO loader is still unimplemented.
+Current qualification is governed by the [release workflow](../.github/workflows/release.yml). The native installer downloads its exact Git revision; historical BUILD-INFO and separate-driver evidence do not define the present package.
+
+**Completion standard:** [one FAT12.so shared across all consumers](ONE_MODULE_END_STATE.md), not merely independent tests of three binaries. Native read/write/format and each claimed Common V2 defragmentation operation, real BOOT `.so` loading and kernel mount/root behavior must pass independently. The Boot ELF/UEFI shared-object bridge is tested separately with real Linux handoff; the generic kernel SO loader is still unimplemented.
 
 ## Evidence separation
 
@@ -9,7 +11,7 @@
 3. ABI: correct width metadata, canonical Common filesystem ABI, Defragmenter and Boot entry points, validated IFSBOOT1 manifest, no substitution by another format.
 4. Fixture: current `tests/fat12_module_test.c` runs against the exact standalone shared object on an in-memory volume.
 5. Integration: Defragmenter's versioned child-worker maps, relocates and recovers disposable independently formatted FAT images, including interrupted-journal stages and independent post-verification.
-6. Packaging: inspect exact owned paths in the Debian archive; install the native `.run`, verify native package version, BUILD-INFO and module SHA-256, and ensure the other format remains unchanged.
+6. Packaging: inspect exact owned paths in the Debian archive; install the native `.run`, verify native package version, source revision, build profile and module/PDF SHA-256, and ensure the other format remains unchanged.
 7. Hardware: physical removable media, supported distributions/kernels and actual UEFI firmware testing. CI and QEMU are not substitutes for hardware evidence.
 
 ## Boot consumer qualification (0.1.5)

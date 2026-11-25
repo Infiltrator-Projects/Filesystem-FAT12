@@ -1,5 +1,7 @@
 # Windows filesystem-driver lifecycle
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../../README.md) and [packaging](../PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 ## Purpose
 
 This document preserves and generalises the durable Windows driver engineering

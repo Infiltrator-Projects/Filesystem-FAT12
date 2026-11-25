@@ -1,5 +1,7 @@
 # OFS format completeness and implementation qualification
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 **DOS0 implementation evidence matrix:** [OFS_DOS0_COMPLETION_MATRIX.md](OFS_DOS0_COMPLETION_MATRIX.md) records DOS0 verification and remaining platform qualification requirements.
 
 **DOS0-specific acceptance contract:** [native/filesystems/ofs/DOS0_COMPLETION.md](../native/filesystems/ofs/DOS0_COMPLETION.md) tracks feature completion of the original DOS0 format independently of the other OFS variants.

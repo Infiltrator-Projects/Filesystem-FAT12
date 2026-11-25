@@ -1,5 +1,7 @@
 # Filesystem source availability
 
+> **Historical reference only.** Preserved for source provenance and earlier qualification evidence, not the current FAT12 implementation or release contract. See [current provider README](../README.md) and [packaging](PACKAGING.md). Earlier source-layout references may no longer resolve.
+
 Of the **41 catalogue formats**, **37** currently have implementation
 source available in this repository:
 

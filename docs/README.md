@@ -1,18 +1,10 @@
-# Documentation index — Filesystem-FAT12
+# FAT12 documentation
 
-- [One-module destination](ONE_MODULE_END_STATE.md): FAT12.so is the entire driver, to be consumed by BOOT, the kernel and applications through generic adapters; existing `.ko`/`.efi` are transitional.
+The [repository README](../README.md) is the current capability and release overview. The active technical references are:
 
-- [Architecture](ARCHITECTURE.md): authority, module boundaries, consumers, dependency direction and filesystem-specific source.
-- [Design](DESIGN.md): decisions and failure policy.
-- [API](API.md): exported interfaces, ABI and filesystem identity.
-- [Validation](VALIDATION.md): automated checks, evidence classes and release gates.
-- [Packaging](PACKAGING.md): .deb/.run/GitHub source ZIP, upgrades, installer handover and installed files.
-- [Forensic audit](FORENSIC-AUDIT.md): what the standalone green checks prove and what remains unqualified.
-- [Decisions](DECISIONS.md): durable architecture and ownership decisions.
-- [Source provenance](SOURCE.md): exact extraction source, copied shared code, attribution and external licences.
-- [Security](SECURITY.md): trust, permissions, destructive-operation constraints and vulnerability handling.
-- [Roadmap](ROADMAP.md): remaining independent kernel/EFI validation, media coverage and consolidation.
-- [Release history](../CHANGELOG.md): versioned implementation changes and accepted qualification.
-- [Migration provenance](../MIGRATION-PROVENANCE.md): source import details, retained legacy source status.
+- [Architecture](ARCHITECTURE.md), [design](DESIGN.md), [Common V2 API](API.md) and [one-module architecture](ONE_MODULE_END_STATE.md).
+- [Packaging and installation](PACKAGING.md), [security](SECURITY.md) and [qualification](VALIDATION.md).
+- [Roadmap](ROADMAP.md), [decisions](DECISIONS.md), [source record](SOURCE.md) and [philosophy](PHILOSOPHY.md).
+- [Technical manual](FAT12.pdf) and its editable [source](FAT12.pages).
 
-The upstream combined Filesystems documentation is retained for source traceability but is not authoritative for this standalone module's releases.
+Inherited cross-format documents and old driver qualification reports are preserved as historical references, not current implementation instructions. They cannot establish current Common V2 capabilities. Follow the exact operation masks and the current [release workflow](../.github/workflows/release.yml).
