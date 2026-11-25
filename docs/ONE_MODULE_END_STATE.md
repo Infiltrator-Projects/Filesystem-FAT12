@@ -1,26 +1,15 @@
-# FAT12: one module, complete filesystem, universal consumers
+# FAT12: one authoritative filesystem module
 
-The canonical filesystem contract is Common V2. BOOT and applications use
-the same FAT12 engine. Qualified relocation and journal recovery still use
-the dedicated Defragmenter interface until equivalent Common V2 operations
-pass independent media tests.
+## Governing architecture
 
-**Authoritative end state:** one independently distributed `FAT12.so` is the **entire FAT12 filesystem driver** and single source of filesystem semantics. The module lives under `/System/Filesystems/FAT12.so` and is discovered by BOOT, the InfiltratorOS kernel and all applications through reviewed, versioned module interfaces and generic loader/host adapters. See [the cross-project authority](https://github.com/Infiltrator-Projects/Filesystems/blob/main/docs/UNIFIED_FILESYSTEM_MODULE_ARCHITECTURE.md).
+One installed `FAT12.so` owns the native format semantics and exposes only `infiltrator_filesystem_api_v2`. Common owns the [V2 ABI and host services](https://github.com/Infiltrator-Projects/Libraries/blob/main/docs/FILESYSTEM_COMMON_ABI_V2.md). The hosted and freestanding profiles use the same canonical engine; qualification of each profile is separate. Consumers negotiate actual operation masks and receive bounded partition-relative I/O. No V1/V3/V4 compatibility path, filesystem-specific .ko/.efi product, FUSE, VFS proxy, private engine or application-side parser is a permitted production substitute.
 
-The end user must **not** have to manage `fat12.ko` and `FAT12.efi` as two additional filesystem products. The preferred engineering result is one source implementation reused across all execution environments. Internal executable representations and bridges are acceptable only where proven necessary; they must not fork FAT12 parsing, write/format/recovery logic into three separately maintained engines.
+- Files, Setup, Disks and Test Media use actual V2 PROBE/MOUNT/READ/FORMAT/CREATE/WRITE operations where qualified. Test Media must not construct the format itself. Refuse unavailable callbacks rather than claiming success.
+- Defragmenter uses only V2 DEFRAG operations, each separately qualified. Mapping is not relocation, and a historical worker or dedicated legacy interface is not qualification for current V2. Keep old tests solely as provenance.
+- BOOT consumes the exact installed module's freestanding profile using generic host services. Target copies: `/System/Filesystems/FAT12.so` and `/EFI/InfiltratorOS/BOOT/drivers_x64/FAT12.so`. Kernel integration also uses the generic module loader; neither consumer owns a second format parser. Do not claim present BOOT or kernel compatibility without exact-package integration tests.
 
-- **BOOT:** the BOOT-owned generic ELF loader executes the verified freestanding read-only interface **from the same FAT12.so file** and supplies bounded UEFI block I/O and boot-file services. A conventional Linux userspace ELF cannot be passed directly to firmware `LoadImage`; a controlled module profile, verified payload or other proven universal loader is required. BOOT's default boot-path operations remain read-only.
-- **Kernel:** the eventual kernel-owned generic module loader or filesystem bridge consumes the same FAT12 implementation. Stock Linux still uses VFS/kernel-safe drivers or an appropriate userspace filesystem service; any interim `fat12.ko` is an implementation bridge, not a separate future filesystem product. Early-root availability, kernel ABI and signing are requirements.
-- **Filesystems, Defragmenter, Test Media, Disks, Files and Setup:** consume FAT12.so's format operations; generic I/O, privilege and safety adapters remain generic. Independent external image tools validate changes so the engine cannot certify itself.
+## Release and qualification
 
-## Qualification
+Only portable amd64 DEB and source-downloading CPU-native RUN are manually published; GitHub generates source archives. No embedded source or DEB payload. The current workflow and actual installer must be verified against this policy; this document does not certify build code. Preserve original format invariants and distinguish historical evidence from the exact current tested revision. For original media structures see [field-level specification](FORMAT_SPECIFICATION.md) and [manual](FAT12.pdf).
 
-The Boot consumer workflow builds the production loader and exercises Common
-V2 with the same portable and native module bytes under OVMF. It loads a real
-Linux kernel and initramfs and checks that a module missing the required
-export is rejected. A generic kernel loader for this module and physical
-firmware qualification remain open.
-
-Defragmenter, Files and Test Media require independent operation and
-disposable-media qualification. Kernel mount/read/write, early root,
-Secure Boot and power-loss recovery require separate evidence.
+[Earlier transition and qualification record](https://github.com/Infiltrator-Projects/Filesystem-FAT12/blob/45d00abb435718dff345f1bf3e6e27389a756aeb/docs/ONE_MODULE_END_STATE.md) is retained in Git history; its legacy interfaces and adapters are not current instructions.
