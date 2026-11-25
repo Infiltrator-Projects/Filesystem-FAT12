@@ -87,7 +87,7 @@ static int fr_plan(void *context,const char *path,uint32_t policy,void **out)
     if(!out)return IFS_FS_INVALID;
     *out=NULL;
     if(!common_session_valid(context) || !path)return IFS_FS_INVALID;
-    if(strcmp(path,"/") || (policy!=0u && policy!=10u) ||
+    if(path[0]!='/' || path[1] || (policy!=0u && policy!=10u) ||
        !common_session.journal_present)return IFS_FS_UNSUPPORTED;
     if(common_session.reloc_plan || fat_reloc_generation==UINTPTR_MAX)return IFS_FS_BUSY;
     const IfsFsHostRuntimeV2 *h=&common_session.host;
