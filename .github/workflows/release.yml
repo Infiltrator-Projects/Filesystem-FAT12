@@ -29,7 +29,13 @@ jobs:
       - name: Compile and exercise exactly one shared object
         run: make check
       - name: Build the DEB and native source installer
-        run: make release
+        run: |
+          make release
+          bootstrap="$(find dist -maxdepth 1 -type f -name '*.run' -print -quit)"
+          test -s "$bootstrap"
+          test "$(wc -c < "$bootstrap")" -lt 8192
+          if grep -aF '__IFS_SOURCE_PAYLOAD_BELOW__' "$bootstrap"; then exit 1; fi
+          grep -F "$GITHUB_SHA" "$bootstrap"
       - name: Validate release bytes and native installation
         shell: bash
         run: |
@@ -131,4 +137,4 @@ jobs:
           sha256sum dist/*.deb dist/*.run
           gh release create "$tag" dist/*.deb dist/*.run \
             --target "$GITHUB_SHA" --title "Filesystem FAT12 ${version}" \
-            --notes "One canonical Common V2 FAT12.so and source-embedded native installer. No filesystem-specific kernel module or independent EFI driver. Common V2 filesystem operations, freestanding firmware profile, native and portable package qualification passed."
+            --notes "One canonical Common V2 FAT12.so and source-first native installer. No filesystem-specific kernel module or independent EFI driver. Common V2 filesystem operations, freestanding firmware profile, native and portable package qualification passed."
