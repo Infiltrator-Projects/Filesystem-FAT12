@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-typedef struct { int fd; uint64_t bytes; uint32_t sector; unsigned writes; int fail_reads; unsigned failed_reads; } Disk;
+typedef struct { int fd; uint64_t bytes; uint32_t sector; unsigned writes,flushes,fail_flush; int fail_reads; unsigned failed_reads; } Disk;
 static int bounds(const Disk *d,uint64_t at,uint32_t n)
 { return d->sector && !(at%d->sector) && !(n%d->sector) &&
          at<=d->bytes && n<=d->bytes-at; }
@@ -42,7 +42,11 @@ static int wr(void *u,uint64_t at,const void *p,uint32_t n)
     ++d->writes;
     return 0;
 }
-static int flush(void *u) { return fsync(((Disk *)u)->fd)==0?0:-1; }
+static int flush(void *u) {
+    Disk *d=u;
+    if(++d->flushes==d->fail_flush)return -1;
+    return fsync(d->fd)==0?0:-1;
+}
 static int fail(const char *message)
 { fprintf(stderr,"FAT12-COMMON-FAIL: %s\n",message);return 1; }
 static void *allocate_at(void *ctx,size_t n) {(void)ctx;return malloc(n);}
@@ -79,6 +83,113 @@ static int check_clock_entry(Disk *disk)
         }
     }
     return -1;
+}
+
+/* A production-module test: each file is allocated in alternating writes.
+ * Verify bytes independently of the planner and read the actual FAT entries
+ * for Growth's trailing reservation. Finally interrupt a real checkpoint
+ * after its commit is durable and require a fresh V2 mount to replay it. */
+static int relocation_regression(const IfsFsModuleApiV2 *api,IfsFsHostRuntimeV2 *io,
+                                 Disk *disk)
+{
+    const IfsFsCoreOpsV2 *fs=(const void*)ifs_fs_group_v2(api,IFS_FS_GROUP_CORE);
+    const IfsFsVolumeOpsV2 *vol=(const void*)ifs_fs_group_v2(api,IFS_FS_GROUP_VOLUME);
+    const IfsFsDefragOpsV2 *defrag=(const void*)ifs_fs_group_v2(api,IFS_FS_GROUP_DEFRAG);
+    const char *paths[]={"/RELOC-A.BIN","/RELOC-B.BIN"};
+    uint8_t *payload=NULL,*actual=NULL;
+    IfsFsVolumeInfoV2 info={.structure_bytes=sizeof(info)};
+    void *session=NULL,*plan=NULL;
+    int rc=1;
+#define RELOC_CHECK(x) do{if(!(x)){fprintf(stderr,"FAT12 relocation line %d: %s\n",__LINE__,#x);goto cleanup;}}while(0)
+    for(unsigned pass=0u;pass<3u;++pass){
+        RELOC_CHECK(vol->format(io,12u,NULL,0u)==IFS_FS_OK);
+        RELOC_CHECK(fs->mount(io,&session,&info)==IFS_FS_OK);
+        const uint32_t unit=info.block_bytes;
+        if(!payload)payload=malloc((size_t)unit*3u);
+        if(!actual)actual=malloc(unit);
+        RELOC_CHECK(payload && actual && unit>=512u && unit<=65536u);
+        for(unsigned f=0u;f<2u;++f)
+            RELOC_CHECK(fs->create(session,paths[f],IFS_FS_ENTRY_FILE)==IFS_FS_OK);
+        for(unsigned j=0u;j<3u;++j)
+            for(unsigned f=0u;f<2u;++f){
+                for(uint32_t k=0u;k<unit;++k)
+                    payload[(size_t)j*unit+k]=(uint8_t)(k*13u+j*47u+f*83u);
+                RELOC_CHECK(fs->write(session,paths[f],(uint64_t)j*unit,
+                    payload+(size_t)j*unit,unit)==IFS_FS_OK);
+            }
+        IfsFsExtentV2 ext[8];uint32_t n=0u;
+        for(unsigned f=0u;f<2u;++f)
+            RELOC_CHECK(defrag->map(session,paths[f],0u,ext,8u,&n)==IFS_FS_OK && n>1u);
+        RELOC_CHECK(fs->unmount(session)==IFS_FS_OK);session=NULL;
+        IfsFsHostRuntimeV2 ro=*io;
+        ro.capabilities=IFS_FS_HOST_READ_ONLY;ro.write_at=NULL;ro.flush=NULL;
+        RELOC_CHECK(fs->mount(&ro,&session,&info)==IFS_FS_OK);
+        const unsigned writes=disk->writes;
+        RELOC_CHECK(defrag->plan(session,"/",pass?10u:0u,&plan)==IFS_FS_OK && plan);
+        uint64_t moved=UINT64_MAX;
+        RELOC_CHECK(defrag->execute(session,plan,&moved)==IFS_FS_ACCESS && !moved);
+        RELOC_CHECK(disk->writes==writes);
+        defrag->release_plan(session,plan);plan=NULL;
+        RELOC_CHECK(fs->unmount(session)==IFS_FS_OK);session=NULL;
+        RELOC_CHECK(fs->mount(io,&session,&info)==IFS_FS_OK);
+        RELOC_CHECK(defrag->plan(session,"/",pass?10u:0u,&plan)==IFS_FS_OK && plan);
+        if(pass==2u){
+            disk->fail_flush=disk->flushes+5u;
+            RELOC_CHECK(defrag->execute(session,plan,&moved)!=IFS_FS_OK);
+            disk->fail_flush=0u;
+            defrag->release_plan(session,plan);plan=NULL;
+            RELOC_CHECK(fs->unmount(session)==IFS_FS_IO_ERROR);session=NULL;
+            uint32_t variant=0u;
+            RELOC_CHECK(fs->probe(&ro,&variant)==IFS_FS_OK && variant==12u);
+            RELOC_CHECK(fs->mount(&ro,&session,&info)!=IFS_FS_OK && !session);
+            RELOC_CHECK(fs->mount(io,&session,&info)==IFS_FS_OK);
+            uint64_t repaired=UINT64_MAX;
+            RELOC_CHECK(defrag->recover(session,0u,&repaired)==IFS_FS_OK && repaired==1u);
+            RELOC_CHECK(defrag->recover(session,0u,&repaired)==IFS_FS_OK && !repaired);
+            /* A second fresh plan completes relocation from the recovered
+             * consistent, potentially still fragmented filesystem. */
+            RELOC_CHECK(defrag->plan(session,"/",10u,&plan)==IFS_FS_OK && plan);
+        }
+        RELOC_CHECK(defrag->execute(session,plan,&moved)==IFS_FS_OK);
+        RELOC_CHECK(defrag->verify(session,plan)==IFS_FS_OK);
+        defrag->release_plan(session,plan);plan=NULL;
+        RELOC_CHECK(fs->unmount(session)==IFS_FS_OK);session=NULL;
+        RELOC_CHECK(fs->mount(&ro,&session,&info)==IFS_FS_OK);
+        uint8_t boot[512];
+        RELOC_CHECK(pread(disk->fd,boot,sizeof boot,0)==(ssize_t)sizeof boot);
+        const uint32_t reserved=read16(boot+14),fat_sectors=read16(boot+22),
+            data_sector=reserved+boot[16]*fat_sectors+(read16(boot+17)*32u+511u)/512u;
+        for(unsigned f=0u;f<2u;++f){
+            RELOC_CHECK(defrag->map(session,paths[f],0u,ext,8u,&n)==IFS_FS_OK &&
+                n==1u && ext[0].length==(uint64_t)unit*3u);
+            if(pass){
+                RELOC_CHECK(ext[0].physical_offset>=(uint64_t)data_sector*512u);
+                const uint64_t c=(ext[0].physical_offset-(uint64_t)data_sector*512u)/unit+2u+3u;
+                uint8_t pair[2];
+                RELOC_CHECK(pread(disk->fd,pair,2u,(off_t)((uint64_t)reserved*512u+c+c/2u))==2);
+                uint32_t value=read16(pair);
+                RELOC_CHECK(!((c&1u)?value>>4:value&0xfffu));
+            }
+            for(unsigned j=0u;j<3u;++j){
+                RELOC_CHECK(fs->read(session,paths[f],(uint64_t)j*unit,actual,unit)==IFS_FS_OK);
+                for(uint32_t k=0u;k<unit;++k)
+                    RELOC_CHECK(actual[k]==(uint8_t)(k*13u+j*47u+f*83u));
+            }
+        }
+        uint64_t errors=UINT64_MAX;
+        RELOC_CHECK(vol->check(session,0u,&errors)==IFS_FS_OK && !errors);
+        RELOC_CHECK(fs->unmount(session)==IFS_FS_OK);session=NULL;
+    }
+    /* Leave an empty, formatted FAT for the pre-existing 4 KiB host tests. */
+    RELOC_CHECK(vol->format(io,12u,NULL,0u)==IFS_FS_OK);
+    rc=0;
+cleanup:
+    disk->fail_flush=0u;
+    if(plan && session)defrag->release_plan(session,plan);
+    if(session)(void)fs->unmount(session);
+    free(payload);free(actual);
+#undef RELOC_CHECK
+    return rc;
 }
 
 int main(int argc,char **argv)
@@ -249,9 +360,9 @@ int main(int argc,char **argv)
             (const IfsFsDefragOpsV2 *)ifs_fs_group_v2(api,IFS_FS_GROUP_DEFRAG);
         IfsFsExtentV2 spans[8]={{0}};
         uint32_t count=UINT32_MAX;
-        if (!defrag || defrag->header.capabilities!=IFS_FS_DEFRAG_MAP ||
-            !defrag->map || defrag->plan || defrag->execute ||
-            defrag->verify || defrag->recover || defrag->release_plan ||
+        if (!defrag || defrag->header.capabilities!=IFS_FS_DEFRAG_ALL ||
+            !defrag->map || !defrag->plan || !defrag->execute ||
+            !defrag->verify || !defrag->recover || !defrag->release_plan ||
             defrag->map(session,renamed,0u,spans,8u,&count)!=IFS_FS_OK ||
             count==0u || spans[0].logical_offset!=0u ||
             spans[0].physical_offset>=disk.bytes ||
@@ -325,6 +436,8 @@ int main(int argc,char **argv)
        vol->check(session,0u,&errors)!=IFS_FS_OK || errors!=0u ||
        fs->unmount(session)!=IFS_FS_OK || flush(&disk)!=0)
         return fail("enumerate/delete/final integrity");
+
+    if(relocation_regression(api,&io,&disk)!=0)return fail("durable native relocation qualification");
 
     /* The existing 512-byte FAT filesystem also runs over a strict 4 KiB
      * host lease; sub-sector file updates must preserve neighbouring bytes. */

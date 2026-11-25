@@ -6452,6 +6452,9 @@ FRESULT f_mkfs (
 				}
 				sz_fat = (n + ss - 1) / ss;		/* FAT size [sector] */
 				sz_rsv = 1;						/* Number of reserved sectors */
+#if defined(IFS_FATFS_ONLY) && IFS_FATFS_ONLY == 12
+				if (fsty == FS_FAT12) sz_rsv = 64; /* Provider-owned native redo journal */
+#endif
 				sz_dir = (DWORD)n_root * SZDIRE / ss;	/* Root directory size [sector] */
 			}
 			b_fat = b_vol + sz_rsv;						/* FAT base */
@@ -6507,6 +6510,9 @@ FRESULT f_mkfs (
 		/* Create FAT VBR */
 		memset(buf, 0, ss);
 		memcpy(buf + BS_JmpBoot, "\xEB\xFE\x90" "MSDOS5.0", 11);	/* Boot jump code (x86), OEM name */
+#if defined(IFS_FATFS_ONLY) && IFS_FATFS_ONLY == 12
+		if (fsty == FS_FAT12) memcpy(buf + 3, "IFSJFAT1", 8); /* Native reserved log profile */
+#endif
 		st_16(buf + BPB_BytsPerSec, ss);				/* Sector size [byte] */
 		buf[BPB_SecPerClus] = (BYTE)pau;				/* Cluster size [sector] */
 		st_16(buf + BPB_RsvdSecCnt, (WORD)sz_rsv);		/* Size of reserved area */

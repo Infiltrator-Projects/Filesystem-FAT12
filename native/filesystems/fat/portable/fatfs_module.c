@@ -11,6 +11,7 @@
 #include "infiltratr/filesystem_module_v2.h"
 #include <string.h>
 #include <stdatomic.h>
+#include "fat12_journal.h"
 
 /* The native engine has one active image and shared scratch/IO state.
  * Enforce exclusion inside the V2 provider, not merely in its callers.
@@ -426,6 +427,12 @@ static int format_volume(const IfsFatfsIo *io,uint32_t cluster_bytes)
     }
     if (!preview_ok) goto done;
     format_preview=0;
+    /* Invalidate any old commit records before publishing a new BPB. A
+     * failed reformat must never replay transactions from the old volume. */
+    memset(work,0,device.sector_bytes);
+    if(disk_write(0,work,1u,1u)!=RES_OK ||
+       disk_write(0,work,2u,1u)!=RES_OK ||
+       disk_ioctl(0,CTRL_SYNC,NULL)!=RES_OK)goto done;
     if (f_mkfs("0:",&options,work,sizeof work)!=FR_OK) goto done;
     /* Confirm that the completed on-media result is the named variant. */
     if (f_mount(&volume,"0:",1)!=FR_OK || volume.fs_type!=REQUIRED_FS ||
@@ -610,8 +617,12 @@ static int common_format(const IfsFsHostRuntimeV2 *host, uint32_t variant,
     io.write_at = common_write;
     io.flush = common_flush;
     io.fat_timestamp = common_timestamp;
-    return format_volume(&io, 0u) == 0 ?
-           IFS_FS_OK : IFS_FS_IO_ERROR;
+    if(format_volume(&io,0u)!=0)return IFS_FS_IO_ERROR;
+    IfsClassicFatVolume geometry;
+    IfsFatV2ProbeIo probe_io={host,IFS_FS_OK};
+    IfsClassicFatIo input={common_probe_read,&probe_io,host->volume_bytes};
+    if(ifs_classic_fat_probe(&input,&geometry)!=0)return IFS_FS_CORRUPT;
+    return fj_initialize(host,&geometry);
 }
 static int guarded_common_format(const IfsFsHostRuntimeV2 *host, uint32_t variant,
                          const char *volume_label, uint32_t flags)
@@ -628,11 +639,17 @@ static struct {
     uintptr_t serial;       /* Never recycle opaque Common mount handles. */
     uintptr_t active_handle;
     int mounted;
+    int journal_present,mutation_fault;
+    uint64_t mount_recovered;
+    void *reloc_plan;
+    uintptr_t reloc_token;
 } common_session;
+static void fat_reloc_discard(void);
 
 static int common_writable(void)
 {
-    return common_session.mounted &&
+    return common_session.mounted && !common_session.mutation_fault &&
+           !common_session.reloc_plan &&
            !(common_session.host.capabilities & IFS_FS_HOST_READ_ONLY) &&
            (common_session.host.capabilities & IFS_FS_HOST_EXCLUSIVE) &&
            common_session.host.write_at && common_session.host.flush;
@@ -656,7 +673,8 @@ static int common_guarded_flush(void *context)
 }
 static int common_session_valid(void *context)
 {
-    return common_session.mounted && common_session.active_handle != 0u &&
+    return common_session.mounted && !common_session.mutation_fault &&
+           common_session.active_handle != 0u &&
            (uintptr_t)context == common_session.active_handle;
 }
 /* Enforce volume-relative absolute paths, without traversal or FatFs drive
@@ -703,6 +721,9 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     input.device_bytes=host->volume_bytes;
     if (ifs_classic_fat_probe(&input,&geometry)!=0)
         return probe_io.error==IFS_FS_OK?IFS_FS_NOT_FOUND:probe_io.error;
+    int journal_present=0;uint64_t recovered=0u;
+    int journal_rc=fj_mount(host,&geometry,&journal_present,&recovered);
+    if(journal_rc!=IFS_FS_OK)return journal_rc;
     /* Common V2 hosts can omit later optional fields. Never read beyond
      * the caller's declared prefix; retain only bytes this session owns. */
     size_t host_bytes=host->structure_bytes<sizeof(common_session.host) ?
@@ -728,6 +749,9 @@ static int common_mount(const IfsFsHostRuntimeV2 *host, void **context,
     }
     common_session.active_handle=++common_session.serial;
     common_session.mounted=1;
+    common_session.journal_present=journal_present;
+    common_session.mount_recovered=recovered;
+    common_session.mutation_fault=0;
     info->variant=12u;
     info->max_name_bytes=765u; /* FAT LFN: 255 UTF-16 units, max 3 UTF-8 bytes each. */
     info->block_bytes=geometry.cluster_bytes;
@@ -749,12 +773,15 @@ static int guarded_common_mount(const IfsFsHostRuntimeV2 *host, void **context,
 
 static int common_unmount(void *context)
 {
-    if (!common_session_valid(context)) return IFS_FS_INVALID;
-    if (detach()!=0)
-        return IFS_FS_IO_ERROR;
-    common_session.mounted=0;
-    common_session.active_handle=0u;
-    return IFS_FS_OK;
+    if(!common_session.mounted || !context ||
+       (uintptr_t)context!=common_session.active_handle)return IFS_FS_INVALID;
+    const int fault=common_session.mutation_fault;
+    fat_reloc_discard();
+    if(selected && detach()!=0)return IFS_FS_IO_ERROR;
+    common_session.mounted=0;common_session.active_handle=0u;
+    common_session.mutation_fault=0;common_session.journal_present=0;
+    common_session.mount_recovered=0u;
+    return fault?IFS_FS_IO_ERROR:IFS_FS_OK;
 }
 static int guarded_common_unmount(void *context)
 {
@@ -1331,10 +1358,13 @@ static int guarded_common_v2_extent_map(void *context,const char *path,
     return v2_leave_operation(common_v2_extent_map(context,path,first_extent,out,capacity,written));
 }
 
+#include "fat12_relocation.h"
 static const IfsFsDefragOpsV2 common_v2_defrag={
     .header={IFS_FS_GROUP_ABI_V2,sizeof(IfsFsDefragOpsV2),
-             IFS_FS_GROUP_DEFRAG,0u,IFS_FS_DEFRAG_MAP},
-    .map=guarded_common_v2_extent_map
+             IFS_FS_GROUP_DEFRAG,0u,IFS_FS_DEFRAG_ALL},
+    .map=guarded_common_v2_extent_map,
+    .plan=guarded_fr_plan,.execute=guarded_fr_execute,.verify=guarded_fr_verify,
+    .recover=guarded_fr_recover,.release_plan=guarded_fr_release
 };
 
 static const IfsFsGroupHeaderV2 *common_v2_query(
