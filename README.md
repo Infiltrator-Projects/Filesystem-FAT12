@@ -1,44 +1,39 @@
 # Filesystem-FAT12
 
-**Final design:** [FAT12.so is the sole distributed filesystem driver](docs/ONE_MODULE_END_STATE.md). BOOT, the kernel and applications will consume the same module using generic adapters. Linux `.ko` and UEFI `.efi` source remains transitional build material, not alternative FAT12 implementations to retain for compatibility. Boot now consumes this same FAT12.so via its generic ELF/UEFI filesystem bridge; a generic kernel-side SO loader remains future work.
+## 1. Purpose and format scope
 
-Independent InfiltratorOS FAT12 filesystem repository. One repository is authoritative for exactly one installed shared-object module: `/System/Filesystems/FAT12.so`.
+Microsoft FAT12, with packed 12-bit allocation entries and fixed root directory. This repository owns the format-specific implementation of `FAT12.so` for InfiltratorOS.
 
-## Actual status
+## 2. On-disk architecture and invariants
 
-The full source was copied from Infiltrator-Projects/Filesystems, pinned to commit `d7a572dcd0d11f7bc69cc05e09e3e944be747838`, including the FAT filesystem interface, its FAT-specific defragmentation and recovery engine, portable FatFs, the Linux VFS source, TianoCore EFI driver source, tests, and Common support source. Import alone is NOT a qualified standalone release.
+Classify by data-cluster count below 4,085, not by the text label in the boot sector. Derive the data region from BPB geometry, FAT sizes and the fixed-root region. Packed entries can straddle bytes and sectors; updating one must preserve neighbouring bits. Directory chains, file lengths, cluster ownership and redundant tables must be consistent.
 
-`make` builds `build/FAT12.so` solely from this repository. `make check` verifies the sole Common filesystem export, its format identity, the in-memory integrity/recovery fixture and a disposable-image format/read/write test. `make release` produces the generic `.deb` and native `.run`; a published GitHub release tag supplies GitHub's automatic source ZIP (not a third uploaded asset). Releases are permitted only when the exact HEAD qualifies in CI.
+## 3. Common V2 implementation and capabilities
 
-## Ownership
+Common V2 covers filesystem read/write, volume query, sync, integrity checks, exclusive mirror repair and explicitly sized formatting through the selected FAT engine. Native namespace and capacity errors must not be collapsed into format rejection. BOOT uses the same SO through a bounded read-only host; dedicated relocation and recovery remain separately qualified. The canonical entry point is `infiltrator_filesystem_api_v2`. Consumers must negotiate the actual profile and operation masks and use bounded, partition-relative host I/O. A source-level callback does not by itself establish that every format variant or host profile is qualified.
 
-- This repository: fat12 interpretation, read/write/file APIs, formatting, allocation, fat12 relocation, journal/recovery, format-specific kernel and EFI source and tests.
-- Filesystems: discovery, selection and management; it must not silently overwrite or install a second copy of this module after package ownership transfers.
-- Defragmenter: the worker and UI; it dynamically loads the installed `FAT12.so` and uses the dedicated host for the qualified relocation and recovery operations.
-- Linux/UEFI transition: existing `fat12.ko` and `FAT12.efi` implementation and tests remain useful for compatibility and qualification. BOOT now uses the same `FAT12.so` through its validated, read-only generic ELF/UEFI bridge and boots a real Linux kernel/initramfs under OVMF. A generic kernel-side SO loader is not yet implemented.
+## 4. Integrity, mutation, allocation and recovery
 
-## Filesystem qualification scope
+FAT has no general native journal. Relocation and application-managed recovery must preserve cluster chains, directory start references, FAT copies and payload identity. Do not infer arbitrary power-loss durability or generic kernel-side SO mounting from a successful fixture. For destructive operations, require the applicable exclusive writable host, durability contract and format-specific validation. Never silently substitute a kernel or FUSE driver or treat a rejected or unavailable operation as success. Preserve original disk-format semantics; relocation and recovery are separate from ordinary file I/O.
 
-FAT12 12-bit packed entries, fixed-root FAT directory and cluster count below 4,085. Reject foreign formats, malformed geometry and ambiguous boundaries before changes. The independent `.so` exposes the Common V2 filesystem API and the dedicated Defragmenter relocation and recovery interface; supported operations, limitations and required test evidence are tracked in [Validation](docs/VALIDATION.md) and [API](docs/API.md). Destructive testing must use disposable images only.
+## 5. Build, installation and release
 
-## Documentation
+The target installation is `/System/Filesystems/FAT12.so` and `/System/Resources/Documentation/Filesystem-FAT12.pdf`. The project release policy is a portable amd64 DEB and a CPU-native source-first RUN, with GitHub's automatic source archive; do not treat this policy statement as verification of the current installer payload. The release workflow is the authoritative executable build and package specification. Historical adapters and test artifacts are not additional production filesystem authorities.
 
-[Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md) · [Validation](docs/VALIDATION.md) · [Packaging](docs/PACKAGING.md) · [Source provenance](docs/SOURCE.md) · [Security](docs/SECURITY.md) · [Roadmap](docs/ROADMAP.md) · [Documentation index](docs/README.md)
+## 6. Qualification and limitations
 
-## Installer files
+[Recorded qualification workflow](https://github.com/Infiltrator-Projects/Filesystem-FAT12/actions/runs/45519927956) · [Current workflows](https://github.com/Infiltrator-Projects/Filesystem-FAT12/actions?query=branch%3Amain). A successful workflow establishes the tested scope only, not complete original-format parity, physical-media crash safety, or production BOOT/kernel integration. Use disposable images for destructive qualification.
 
-- `/System/Filesystems/FAT12.so`
-- `/System/Resources/Documentation/Filesystem-FAT12.pdf`
+## 7. Technical references and provenance
 
-The published Debian package installs FAT12.so and its PDF only. FAT12 has no userspace VFS intermediary: native Kernel integration must execute the canonical shared-object engine directly through a kernel-owned, format-neutral loader. Kernel direct mounting and power-failure recovery remain unqualified. The native RUN can separately compile a transitional kernel adapter against a qualified, prepared kernel build; that adapter is not an additional published filesystem product. Use `--kernel-build DIRECTORY` when deliberately building one.
+- [Provider implementation](native/filesystems/fat/module/classic_fat_module.c)
+- [Native design or source provenance](native/filesystems/fat/DESIGN.md)
+- [Migration and source history](MIGRATION-PROVENANCE.md)
+- [Original-format reference source](docs/FAT12.pages) and [PDF](docs/FAT12.pdf)
+- [Project philosophy](docs/PHILOSOPHY.md)
+- [Common ABI](https://github.com/Infiltrator-Projects/Libraries)
+- [API](docs/API.md)
+- [Validation](docs/VALIDATION.md)
+- [One-module architecture](docs/ONE_MODULE_END_STATE.md)
 
-InfiltratorOS calls `--system-package-mode` and decides which outputs need updating. Its worker builds a missing or older SO, repairs the PDF independently, and stores the matching released kernel module when available. Use `--build-only --output DIRECTORY` to build a Debian package.
-
-## Common V2 filesystem ABI
-
-`FAT12.so` exposes `infiltrator_filesystem_api_v2` for application and
-firmware hosts. The volume group includes sync, integrity checks, exclusive
-mirror repair and explicitly sized formatting. BOOT uses the same module
-through a bounded read-only host. The dedicated Defragmenter relocation and
-recovery interface is still in use while those operations are qualified through
-Common V2.
+The original-format reference and historical migration notes describe different evidence from the current production provider. When descriptions disagree, the current exported descriptor, implementation, executable tests and exact-revision release evidence take precedence.
