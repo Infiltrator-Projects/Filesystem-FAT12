@@ -1147,6 +1147,61 @@ static const IfsFsCoreOpsV2 common_v2_core = {
  * Validate the complete chain before accepting a map, including clusters
  * outside a requested page, and never return success on a broken FAT chain.
  */
+/* Directory sizes are not stored in FAT directory entries. Open the
+ * directory with FatFs and walk the native cluster chain to EOC; do not
+ * guess its allocation from its entry count. "/" retains the existing
+ * whole-volume allocation-map contract. Every non-root directory map is
+ * validated through the terminal FAT link even when the caller's page
+ * fills early, so loops and truncated chains cannot yield a short pass. */
+static int common_v2_directory_map(const char *path,uint64_t first,
+                                    IfsFsExtentV2 *out,uint32_t capacity,
+                                    uint32_t *written)
+{
+    DIR dir;
+    FRESULT opened=f_opendir(&dir,path);
+    if(opened!=FR_OK)return fat_status(opened);
+    FIL table={0};
+    table.obj.fs=&volume;
+    DWORD cluster=dir.obj.sclust,previous=0u;
+    const uint64_t unit=(uint64_t)volume.csize*device.sector_bytes;
+    uint64_t seen=0u;
+    uint32_t count=0u;
+    int result=IFS_FS_CORRUPT;
+    if(!unit || volume.n_fatent<3u)goto done;
+    for(uint32_t i=0u;i<volume.n_fatent-2u;++i) {
+        if(common_session.host.cancelled &&
+           common_session.host.cancelled(common_session.host.context)){
+            result=IFS_FS_BUSY;goto done;
+        }
+        if(cluster<2u || cluster>=volume.n_fatent || cluster>=0xff0u)
+            goto done;
+        const uint64_t physical=((uint64_t)volume.database+
+            (uint64_t)(cluster-2u)*volume.csize)*device.sector_bytes;
+        if(physical>device.partition_bytes ||
+           unit>device.partition_bytes-physical)goto done;
+        if(!i || cluster!=previous+1u){
+            if(seen>=first && count<capacity){
+                out[count++]=(IfsFsExtentV2){
+                    .logical_offset=(uint64_t)i*unit,
+                    .physical_offset=physical,.length=unit};
+            }
+            ++seen;
+        }else if(seen>first && seen-first<=count)out[count-1u].length+=unit;
+        previous=cluster;
+        DWORD next=ifs_fatfs_native_next_cluster(&table,cluster);
+        if(next==UINT32_MAX){result=IFS_FS_IO_ERROR;goto done;}
+        if(next>=0xff8u && next<=0xfffu){
+            result=count?IFS_FS_OK:IFS_FS_END;goto done;
+        }
+        if(next<2u || next>=volume.n_fatent || next>=0xff0u)goto done;
+        cluster=next;
+    }
+done:
+    if(f_closedir(&dir)!=FR_OK)result=IFS_FS_IO_ERROR;
+    *written=result==IFS_FS_OK?count:0u;
+    return result;
+}
+
 static int common_v2_extent_map(void *context,const char *path,
                                 uint64_t first_extent,IfsFsExtentV2 *out,
                                 uint32_t capacity,uint32_t *written)
@@ -1205,8 +1260,9 @@ static int common_v2_extent_map(void *context,const char *path,
         return mapped?IFS_FS_OK:IFS_FS_END;
     }
     opened=f_open(&file,native_path,FA_READ);
-    if(opened==FR_NO_FILE || opened==FR_NO_PATH)return IFS_FS_NOT_FOUND;
-    if(opened==FR_DENIED || opened==FR_INVALID_NAME)return IFS_FS_INVALID;
+    if(opened==FR_NO_FILE || opened==FR_NO_PATH || opened==FR_DENIED)
+        return common_v2_directory_map(native_path,first_extent,out,capacity,written);
+    if(opened==FR_INVALID_NAME)return IFS_FS_INVALID;
     if(opened!=FR_OK)return IFS_FS_IO_ERROR;
     result=IFS_FS_OK;
     unit=(uint64_t)volume.csize*device.sector_bytes;

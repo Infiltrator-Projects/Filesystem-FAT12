@@ -258,6 +258,13 @@ int main(int argc,char **argv)
             spans[0].length<1000u)
             return fail("FAT12 Common V2 extent map contract");
         count=UINT32_MAX;
+        if(defrag->map(session,dir,0u,spans,8u,&count)!=IFS_FS_OK ||
+           count!=1u || spans[0].logical_offset ||
+           spans[0].length!=info.block_bytes ||
+           spans[0].physical_offset>=disk.bytes ||
+           defrag->map(session,dir,1u,spans,8u,&count)!=IFS_FS_END || count)
+            return fail("native Common V2 directory chain mapping or terminal page");
+        count=UINT32_MAX;
         if (defrag->map(session,"/",0u,spans,8u,&count)!=IFS_FS_OK ||
             count==0u || spans[0].physical_offset>=disk.bytes ||
             spans[0].length==0u)
