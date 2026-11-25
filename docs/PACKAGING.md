@@ -1,23 +1,20 @@
 # Filesystem-FAT12 packaging and installation
 
-**Destination:** [Only FAT12.so is the installed per-format driver](ONE_MODULE_END_STATE.md). The current release workflow and historical artifacts may include additional transitional test binaries. The finished product must package/distribute one validated `FAT12.so` and the existing generic BOOT/kernel infrastructure; do not require separate per-format `.ko` or `.efi` as permanent deliverables. Do not silently install boot artifacts to ESP/NVRAM.
+## Current release contract
 
-## Artifacts
+The sole installed filesystem engine is `FAT12.so`, with the Common V2 public entry point `infiltrator_filesystem_api_v2`. The release publishes exactly one portable amd64 Debian package and one source-downloading native RUN. GitHub generates source archives from the immutable release tag; no separate source or checksum asset is uploaded. `VERSION` supplies the package version.
 
-The original shared-object release convention published two assets; later transitional builds may publish additional individually qualified kernel/EFI test artifacts. The final one-file architecture publishes the selected filesystem as one installed `.so` through its package/installer. Earlier versions published: `infiltrator-filesystem-fat12_X.Y.Z_amd64.deb` and `filesystem-fat12-X.Y.Z-native-installer.run`. GitHub's default `Source code (zip)` and `Source code (tar.gz)` links are generated from the same tag, not uploaded copies. `VERSION` is the only standalone release version authority.
+- Portable: `infiltrator-filesystem-fat12_X.Y.Z_amd64.deb`
+- Native: `filesystem-fat12-X.Y.Z-native-installer.run`
 
-## Package ownership
+The package owns `/System/Filesystems/FAT12.so` and `/System/Resources/Documentation/Filesystem-FAT12.pdf`. It must not install another filesystem, a kernel module, a separate EFI driver or a consumer executable. The module's freestanding reader is a profile of the same provider, not a second installed filesystem driver.
 
-Debian package identity `infiltrator-filesystem-fat12`. The package owns `/System/Filesystems/FAT12.so` and passive documentation under `/System/Resources/Documentation/Filesystem-FAT12.pdf`. It must NOT own the opposite FAT module, another filesystem, `/usr/lib/filesystems`, or the Defragmenter executable. Reinstall or removal targets only the selected module. A previous Filesystems selector may have installed an unowned module at the same path; confirm ownership and upgrade behaviour before retiring its installer.
+## Native installation
 
-## Generic and native builds
+The RUN is a small shell bootstrap. It fetches the exact release commit from this repository, verifies the checkout revision, and invokes the existing native builder. It contains neither a source archive nor a prebuilt Debian package. Internet access and build prerequisites are required. The default aggressive profile compiles for the local CPU, uses LTO and qualified two-pass PGO, and installs the resulting `X.Y.Z+native1` Debian package. The build-only option is for package qualification. See the [release workflow](../.github/workflows/release.yml) for exact tests and the [release page](https://github.com/Infiltrator-Projects/Filesystem-FAT12/releases) for available artifacts.
 
-The generic package uses an x86-64 portable C11 compile, LTO where configured, and exact format and ABI checks. The source `.run` embeds the matching full repository source archive and its SHA-256, extracts to temporary private storage, recompiles on the local CPU with `-O3 -march=native -mtune=native -flto`, validates module identity and installs `X.Y.Z+native1` via dpkg. It accepts `--profile aggressive --system-package-mode`. Hardware-native PGO training is not asserted until an actual training/qualification implementation exists.
+## Verification and ownership
 
-## InfiltratorOS
+Install only the selected provider and verify package ownership, source revision, module ABI, build profile and manual integrity. Failed installation or validation is not success. No filesystem-specific kernel or FUSE fallback is permitted. CI qualifies the exact revision before publication; existing release tags and their assets remain immutable. Historical artifacts are not the current deployment contract.
 
-InfiltratorOS should launch two separately tracked and checksum-verified filesystem module installers, verify each package and native build metadata, and preserve the existing module loader path. It must not claim successful installation when either release, build or installed module is missing.
-
-## Publication rules
-
-Pull requests build and test without publishing. A protected main commit qualifies in CI; only a successful exact revision is tagged and published, never mutating an existing public release. GitHub's source ZIP must include the full local source and licence notices. The old Filesystems release remains untouched until the new module package has independently passed installation and Defragmenter integration.
+See [README](../README.md), [architecture](ONE_MODULE_END_STATE.md) and [validation](VALIDATION.md). 
