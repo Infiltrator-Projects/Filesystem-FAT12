@@ -1,5 +1,7 @@
 # Filesystems Target Matrix
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 This document is the human-readable support contract for **Filesystems**.
 
 The catalogue is intentionally **format-centric** and contains **41 persistent local-storage filesystem formats**. Every row is a real on-media filesystem identity that the project intentionally aims to recognise and support. Provider names, network/cloud mounts, overlays, archive namespaces, encryption containers, device namespaces and pseudo-filesystems are not separate catalogue entries.

@@ -1,5 +1,7 @@
 # Native Code Architecture
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 ## Architectural rule
 
 Filesystems owns one canonical implementation of each **in-scope persistent local-storage filesystem format**.

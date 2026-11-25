@@ -1,5 +1,7 @@
 # ExtFS-for-Windows migration preservation ledger
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 ## Purpose
 
 This ledger records the engineering boundary used when the standalone ExtFS-for-Windows work was folded into Filesystems. It is provenance and migration evidence; it is not a second implementation authority and it must describe the repository as it exists now.

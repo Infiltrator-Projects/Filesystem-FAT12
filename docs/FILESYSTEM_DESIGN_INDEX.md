@@ -1,5 +1,7 @@
 # Filesystem Design Documents
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 Filesystem design documents record on-media format facts, current ownership state and the intended canonical-engine/platform-adapter boundary. A design document does not by itself claim that the filesystem has been rewritten, made writable, made bootable or qualified as an InfiltratorOS root.
 
 ## Authorities

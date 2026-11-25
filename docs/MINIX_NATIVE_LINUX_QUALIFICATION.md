@@ -1,5 +1,7 @@
 # Minix independent Linux driver qualification
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 Original implementation: `native/filesystems/minix/linux/` copied from
 the Linux 6.12 filesystem driver, including its existing licensing and
 copyright. No competing generic Minix implementation or fake `core/`

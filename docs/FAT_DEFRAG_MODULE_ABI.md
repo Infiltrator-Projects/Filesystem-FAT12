@@ -1,5 +1,7 @@
 # FAT defragmentation module interface
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 The FAT12 and FAT16 shared objects supply a dedicated relocation and recovery interface
 in addition to their filesystem APIs. The same entry point is included in the
 existing FAT32 shared object to preserve Defragmenter's FAT32 support. The

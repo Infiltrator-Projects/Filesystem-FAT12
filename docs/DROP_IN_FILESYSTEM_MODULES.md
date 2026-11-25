@@ -1,5 +1,7 @@
 # Drop-in filesystem modules: target product architecture
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 **Status: agreed architectural direction, not a claim of implemented runtime support.** This is the target for Filesystems, Boot, Defragmenter, Defragmenter Test Media, Files, and Setup. Existing filesystem modules, qualified Boot drivers, Linux mounts and physical partitions must remain untouched until their replacements have independent qualification.
 
 ## User-facing contract: one file, drag and drop

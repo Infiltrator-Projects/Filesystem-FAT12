@@ -1,5 +1,7 @@
 # FAT12 and FAT16 driver qualification
 
+> **Historical reference only.** Preserved as inherited design or qualification evidence, not current FAT12 implementation, release, ABI or integration instructions. Consult the [current provider README](../README.md) and [packaging contract](PACKAGING.md). References to earlier source layouts and separate drivers may no longer resolve.
+
 The target is two independently identifiable filesystems, each with a `.so`,
 Linux `.ko`, and UEFI `.efi`. This development work is not release approval.
 
