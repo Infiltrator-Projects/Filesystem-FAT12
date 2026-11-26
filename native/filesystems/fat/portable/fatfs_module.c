@@ -1442,6 +1442,27 @@ static const IfsFsDefragOpsV2 common_v2_defrag={
     .recover=guarded_fr_recover,.release_plan=guarded_fr_release
 };
 
+/* The 255 MiB FAT12 corpus profile deliberately fixes 64 KiB clusters.
+ * Smaller FAT12 volumes remain supported by the native FORMAT callback;
+ * this profile describes the geometry which supports the full corpus. */
+static int default_format_profile(IfsFsFormatProfileV2 *p)
+{
+    if(!p || p->structure_bytes<sizeof(*p))return IFS_FS_INVALID;
+    *p=(IfsFsFormatProfileV2){
+        .structure_bytes=sizeof(*p), .flags=IFS_FS_FORMAT_REQUIRE_CHECK,
+        .format_variant=12u, .probe_variant=12u,
+        .exact_block_bytes=65536u, .layout=IFS_FS_LAYOUT_MULTI_EXTENT,
+        .minimum_bytes=255ull*1024u*1024u,
+        .recommended_bytes=255ull*1024u*1024u,
+        .maximum_bytes=255ull*1024u*1024u
+    };
+    return IFS_FS_OK;
+}
+static const IfsFsFormatProfileOpsV2 format_profile_ops={
+    .header={IFS_FS_GROUP_ABI_V2,sizeof(IfsFsFormatProfileOpsV2),
+             IFS_FS_GROUP_FORMAT_PROFILE,0u,IFS_FS_FORMAT_PROFILE_DEFAULT},
+    .get_default=default_format_profile
+};
 static const IfsFsGroupHeaderV2 *common_v2_query(
     uint32_t id, uint32_t minimum, uint32_t maximum)
 {
@@ -1451,13 +1472,15 @@ static const IfsFsGroupHeaderV2 *common_v2_query(
     if (id==IFS_FS_GROUP_VOLUME) return &common_v2_volume.header;
     if (id==IFS_FS_GROUP_DEFRAG) return &common_v2_defrag.header;
     if(id==IFS_FS_GROUP_ALLOCATION)return &common_allocation.header;
+    if(id==IFS_FS_GROUP_FORMAT_PROFILE)return &format_profile_ops.header;
     return NULL;
 }
 static const IfsFsModuleApiV2 common_v2_api={
     IFS_FS_COMMON_ABI_V2,sizeof(IfsFsModuleApiV2),"fat12",
     IFS_FS_PROFILE_HOSTED|IFS_FS_PROFILE_FREESTANDING|IFS_FS_PROFILE_FIRMWARE,
     IFS_FS_GROUP_BIT(IFS_FS_GROUP_CORE)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_VOLUME)|
-    IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_ALLOCATION),
+    IFS_FS_GROUP_BIT(IFS_FS_GROUP_DEFRAG)|IFS_FS_GROUP_BIT(IFS_FS_GROUP_ALLOCATION)|
+    IFS_FS_GROUP_BIT(IFS_FS_GROUP_FORMAT_PROFILE),
     common_v2_query
 };
 __attribute__((visibility("default")))
