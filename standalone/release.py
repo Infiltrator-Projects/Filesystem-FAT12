@@ -54,6 +54,9 @@ def build_deb(profile, dest):
         info_dir.mkdir(parents=True)
         manual = info_dir / (REPO + ".pdf")
         manual_builder.build(manual, ROOT / PDF.with_suffix(".pdfstreams"), VERSION)
+        # Use the existing source-owned freestanding profile; no filesystem
+        # code is duplicated or linked into BOOT. The installed module remains one file.
+        run(["bash", ROOT / "standalone/embed-firmware.sh", module])
         digest = hashlib.sha256(module.read_bytes()).hexdigest()
         pdf_digest = hashlib.sha256(manual.read_bytes()).hexdigest()
         revision = source_revision()
