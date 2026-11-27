@@ -39,4 +39,4 @@ The target installation is `/System/Filesystems/FAT12.so` and `/System/Resources
 
 The original-format reference and historical migration notes describe different evidence from the current production provider. When descriptions disagree, the current exported descriptor, implementation, executable tests and exact-revision release evidence take precedence.
 
-The [engineering reference](docs/FAT12-TECHNICAL-REFERENCE.md) integrates the original-format specification and worked exercises; earlier illustrated material is preserved in the PDF.
+The [engineering reference](docs/FAT12-TECHNICAL-REFERENCE.md) is the unified technical manual; worked examples are integrated into the appropriate chapters.
