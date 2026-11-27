@@ -1,6 +1,6 @@
 # FAT12 documentation
 
-The [repository README](../README.md) is the current provider overview. For original format history, on-disk byte layouts, algorithms, limits, and historical variants, see the [field-level specification](FORMAT_SPECIFICATION.md), [technical manual](FAT12.pdf) and its [PDF-generation source](FAT12.pages).
+The [repository README](../README.md) is the current provider overview. For original format history, on-disk byte layouts, algorithms, limits, and historical variants, see the [unified technical reference](FAT12-TECHNICAL-REFERENCE.md), [technical manual](FAT12.pdf) and its [PDF-generation source](FAT12.pdfstreams).
 
 - [Architecture](ARCHITECTURE.md), [design](DESIGN.md), [Common V2 API](API.md) and [one-module architecture](ONE_MODULE_END_STATE.md).
 - [Packaging](PACKAGING.md), [security](SECURITY.md), [qualification](VALIDATION.md), [roadmap](ROADMAP.md), [decisions](DECISIONS.md), [source provenance](SOURCE.md) and [philosophy](PHILOSOPHY.md).

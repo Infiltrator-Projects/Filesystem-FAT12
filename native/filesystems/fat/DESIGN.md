@@ -1,5 +1,7 @@
 # FAT12 / FAT16 / FAT32 design and ownership
 
+> **Historical inherited design.** The V3/V4 and separate process-host ABIs, kernel and EFI test builds described below are retained only as source history. They are not current provider contracts. The active Common V2 interface, qualification and distribution model are documented in the [repository README](../../../README.md) and [unified technical reference](../../../docs/FAT12-TECHNICAL-REFERENCE.md).
+
 FAT12, FAT16 and FAT32 are related on-disk formats with different allocation
 entry widths. Filesystems presents them as distinct selectable modules. A
 module for one width must not be accepted as another by renaming the file.
