@@ -28,6 +28,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential binutils python3 dpkg-dev
       - name: Compile and exercise exactly one shared object
         run: make check
+      - name: Compile the GitHub source archive against the canonical Common revision
+        run: bash tests/common-source.sh
       - name: Build the DEB and native source installer
         run: |
           make release

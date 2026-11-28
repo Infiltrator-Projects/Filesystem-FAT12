@@ -87,6 +87,7 @@ def train_profile(module, workspace):
 
 
 def build(profile, module):
+    run(["bash", ROOT / "standalone/prepare-common.sh"])
     module.parent.mkdir(parents=True, exist_ok=True)
     flags = ["-std=c11", "-fPIC", "-mno-red-zone", "-fno-stack-protector", "-fno-builtin",
              "-fno-tree-loop-distribute-patterns", "-U_FORTIFY_SOURCE", "-D_FORTIFY_SOURCE=0",
@@ -178,7 +179,7 @@ def install_deps():
         run([*apt, "install", "-y", "--no-install-recommends", *packages])
 
 def prepare_release_source():
-    pass
+    run(["bash", ROOT / "standalone/prepare-common.sh"])
 
 def embedded_source_files():
     return []
@@ -199,11 +200,10 @@ def release_source_files():
         selected = (
             (q.startswith("native/filesystems/fat/") and
              not q.startswith("native/filesystems/fat/defrag/")) or
-            q.startswith("src/infiltratr-common/include/") or
             q.startswith("native/include/") or
             q.startswith("standalone/") or q.startswith("docs/") or
             q in ("README.md", "VERSION", "MIGRATION-PROVENANCE.md",
-                  "src/infiltratr-common/LICENSE", f"tests/fat{WIDTH}_module_test.c",
+                  f"tests/fat{WIDTH}_module_test.c",
                   "tests/fatfs_common_format_test.c")
         )
         if selected and (ROOT / p).is_file() and not (ROOT / p).is_symlink():

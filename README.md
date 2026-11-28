@@ -39,3 +39,5 @@ The target installation is `/System/Filesystems/FAT12.so` and `/System/Resources
 The original-format reference and historical migration notes describe different evidence from the current production provider. When descriptions disagree, the current exported descriptor, implementation, executable tests and exact-revision release evidence take precedence.
 
 The [engineering reference](docs/FAT12-TECHNICAL-REFERENCE.md) is the unified technical manual; worked examples are integrated into the appropriate chapters.
+
+The hosted module, firmware carrier and native installer compile from the same pinned Libraries gitlink. The normal build initialises it. GitHub source archives fetch the identical commit recorded in `standalone/COMMON_REVISION`.
