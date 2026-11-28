@@ -212,7 +212,13 @@ int ifs_classic_fat_check(const IfsClassicFatIo *io,
             if(bounded_read(io,v->fat_offset+off,a,n)!=0 ||
                bounded_read(io,v->fat_offset+(uint64_t)copy*fat_bytes+off,b,n)!=0)
                 return -1;
-            for(uint32_t j=0;j<n;++j) if(a[j]!=b[j]) {++errors;break;}
+            for(uint32_t j=0;j<n;++j) {
+                /* An even final FAT12 entry uses only the low nibble
+                 * of its second byte. The high nibble belongs to an
+                 * out-of-domain entry and is not a mirror discrepancy. */
+                uint8_t mask=(off+j+1u==used_bytes && !(max&1u))?0x0fu:0xffu;
+                if((a[j]&mask)!=(b[j]&mask)){++errors;break;}
+            }
         }
     }
     for(uint32_t n=0;n<v->root_entries;++n) {
@@ -295,21 +301,31 @@ int ifs_classic_fat_repair_mirrors(
        volume->fat_offset+(uint64_t)volume->fat_copies*fat_bytes >
            volume->root_offset)
         return -1;
+    /* Repair only live entries. Unused FAT padding and the high nibble
+     * of a final even entry are not allocation metadata and may differ
+     * between copies without indicating corruption. */
+    const uint32_t max=volume->cluster_count+1u;
+    const uint64_t used_bytes=(uint64_t)max+max/2u+2u;
+    if(used_bytes>fat_bytes)return -1;
     for(uint32_t copy=1u;copy<volume->fat_copies;++copy) {
         const uint64_t destination=volume->fat_offset+(uint64_t)copy*fat_bytes;
-        for(uint64_t offset=0;offset<fat_bytes;offset+=sizeof source) {
-            uint32_t size=(uint32_t)(fat_bytes-offset<sizeof source ?
-                                     fat_bytes-offset:sizeof source);
+        for(uint64_t offset=0;offset<used_bytes;offset+=sizeof source) {
+            uint32_t size=(uint32_t)(used_bytes-offset<sizeof source ?
+                                     used_bytes-offset:sizeof source);
             int mismatch=0;
             if(bounded_read(io,volume->fat_offset+offset,source,size)!=0 ||
                bounded_read(io,destination+offset,target,size)!=0)
                 return -1;
-            for(uint32_t i=0;i<size;++i)
-                if(source[i]!=target[i]) {mismatch=1;break;}
+            for(uint32_t i=0;i<size;++i) {
+                const uint8_t mask=(offset+i+1u==used_bytes && !(max&1u))?0x0fu:0xffu;
+                const uint8_t corrected=(uint8_t)((source[i]&mask)|(target[i]&~mask));
+                if(corrected!=target[i])mismatch=1;
+                target[i]=corrected;
+            }
             if(mismatch) {
                 if(destination+offset>volume->volume_bytes ||
                    size>volume->volume_bytes-destination-offset ||
-                   write_at(io->context,destination+offset,source,size)!=0)
+                   write_at(io->context,destination+offset,target,size)!=0)
                     return -1;
                 ++changes;
             }

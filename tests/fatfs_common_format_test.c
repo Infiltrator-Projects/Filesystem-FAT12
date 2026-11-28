@@ -488,7 +488,27 @@ int main(int argc,char **argv)
         uint32_t reserved=(uint32_t)boot[14] | ((uint32_t)boot[15]<<8);
         uint32_t fat_sectors=(uint32_t)boot[22] | ((uint32_t)boot[23]<<8);
         uint32_t fs_sector=(uint32_t)boot[11] | ((uint32_t)boot[12]<<8);
-        uint64_t mirror=((uint64_t)reserved+fat_sectors)*fs_sector+128u;
+        const uint32_t total=read16(boot+19)?read16(boot+19):read32(boot+32);
+        const uint32_t root_sectors=(read16(boot+17)*32u+fs_sector-1u)/fs_sector;
+        const uint32_t clusters=(total-reserved-boot[16]*fat_sectors-root_sectors)/boot[13];
+        const uint32_t last=clusters+1u;
+        const uint64_t used=(uint64_t)last+last/2u+2u;
+        const uint64_t second=(uint64_t)(reserved+fat_sectors)*fs_sector;
+        uint64_t preserved_at=0u;
+        unsigned char preserved=0u;
+        if(!(last&1u) || used<(uint64_t)fat_sectors*fs_sector) {
+            preserved_at=second+(!(last&1u)?used-1u:used);
+            if(pread(disk.fd,&preserved,1,(off_t)preserved_at)!=1)
+                return fail("read unused FAT12 bits");
+            preserved^=0xa0u;
+            if(pwrite(disk.fd,&preserved,1,(off_t)preserved_at)!=1)
+                return fail("inject unused FAT12 bits");
+            uint64_t clean=UINT64_MAX,repairs=UINT64_MAX;
+            if(vol->check(session,0u,&clean)!=IFS_FS_OK || clean ||
+               vol->repair(session,0u,&repairs)!=IFS_FS_OK || repairs)
+                return fail("unused FAT12 bits are not corruption");
+        }
+        uint64_t mirror=second+128u;
         if (mirror>=disk.bytes || pread(disk.fd,&original,1,(off_t)mirror)!=1)
             return fail("FAT mirror fixture read");
         damaged=(unsigned char)(original ^ 0x40u);
@@ -498,6 +518,9 @@ int main(int argc,char **argv)
             pread(disk.fd,&verified,1,(off_t)mirror)!=1 || verified!=original ||
             fs->unmount(session)!=IFS_FS_OK)
             return fail("4 KiB host-sector FAT mirror repair");
+        if(preserved_at &&
+           (pread(disk.fd,&verified,1,(off_t)preserved_at)!=1 || verified!=preserved))
+            return fail("FAT12 mirror repair overwrote unused bits");
     }
 
     if(close(disk.fd)!=0 || dlclose(library)!=0)return fail("close");
